@@ -47,7 +47,7 @@ pub fn generate_index(config: &Config, db: &Arc<StateDb>) -> Result<std::path::P
             body.push_str(&format!("- [[{}]]\n", a.title));
         }
     }
-    body.push_str(&format!("\n---\n_Updated {now} by synto._\n"));
+    body.push_str(&format!("\n---\n_Updated {now} by notus._\n"));
     let mut meta = serde_yaml::Mapping::new();
     meta.insert("title".into(), "Index".into());
     meta.insert(

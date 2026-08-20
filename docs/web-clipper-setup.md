@@ -1,6 +1,6 @@
 # Obsidian Web Clipper → raw/ Setup
 
-Save web articles directly to your `raw/` folder so `synto` can ingest them automatically.
+Save web articles directly to your `raw/` folder so `notus` can ingest them automatically.
 
 ---
 
@@ -23,9 +23,9 @@ captured: {{date}}
 {{content}}
 ```
 
-5. Clip any article → it lands in `raw/` → run `synto ingest raw/{{filename}}.md`
+5. Clip any article → it lands in `raw/` → run `notus ingest raw/{{filename}}.md`
 
-With `synto watch` running, ingest + compile happen automatically after each clip.
+With `notus watch` running, ingest + compile happen automatically after each clip.
 
 ---
 
@@ -57,18 +57,18 @@ On iOS, use the Obsidian share sheet to save web content. Set the default folder
 
 ## Option 4: Manual + watch
 
-Simplest approach: copy-paste article text into a new `.md` file in `raw/`. With `synto watch` running, it will be ingested within a few seconds (configurable `watch_debounce` in `synto.toml`).
+Simplest approach: copy-paste article text into a new `.md` file in `raw/`. With `notus watch` running, it will be ingested within a few seconds (configurable `watch_debounce` in `notus.toml`).
 
 ---
 
-## Automating with `synto watch`
+## Automating with `notus watch`
 
 Start the watcher in a dedicated terminal (or as a background process):
 
 ```bash
-synto watch --vault ~/my-vault
+notus watch --vault ~/my-vault
 # With auto-approve (skips draft review):
-synto watch --vault ~/my-vault --auto-approve
+notus watch --vault ~/my-vault --auto-approve
 ```
 
 **Flow:** clip article → saved to `raw/` → watcher triggers after debounce → `ingest` → `compile` → draft in `.drafts/` (or auto-published if `--auto-approve`)

@@ -1,5 +1,5 @@
 [package]
-name = "synto"
+name = "notus"
 version = "0.8.0"
 edition = "2021"
 rust-version = "1.85"
@@ -11,7 +11,7 @@ categories = ["command-line-utilities", "text-processing"]
 repository = "https://github.com/kytmanov/synto"
 homepage = "https://github.com/kytmanov/synto"
 authors = ["kytmanov"]
-default-run = "synto"
+default-run = "notus"
 include = [
     "src/**/*",
     "prompts/**/*",

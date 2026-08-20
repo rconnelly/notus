@@ -7,7 +7,7 @@
 #
 # What it does:
 #   1. Creates a temp vault with N synthetic raw notes
-#   2. Runs synto ingest + synto compile, capturing timing output
+#   2. Runs notus ingest + notus compile, capturing timing output
 #   3. Prints a summary: total time, avg per concept, slowest concepts
 #
 # Options:
@@ -30,7 +30,7 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-SYNTO="${SYNTO_BIN:-$PROJECT_DIR/target/debug/synto}"
+SYNTO="${NOTUS_BIN:-$PROJECT_DIR/target/debug/notus}"
 
 # Portable epoch-milliseconds. GNU `date +%s%3N` is unavailable on BSD/macOS
 # (no %N), so go through python which is already a hard dependency here.
@@ -71,7 +71,7 @@ else
     CLEANUP_VAULT=0
 fi
 
-export SYNTO_VAULT="$VAULT"
+export NOTUS_VAULT="$VAULT"
 
 # ── Ingest ────────────────────────────────────────────────────────────────────
 

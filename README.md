@@ -1,4 +1,4 @@
-# Synto
+# Notus
 
 <p align="center">
      <a href="https://www.rust-lang.org"><img alt="Rust 1.85+" src="https://img.shields.io/badge/rust-1.85%2B-orange?style=flat&amp;logo=rust"></a>
@@ -17,7 +17,7 @@
 
 **Turn your raw notes into a self-improving, interlinked wiki — powered by a local LLM.**
 
-You drop Markdown notes in a folder. Synto reads them with a local LLM, extracts the concepts they contain, and writes one cross-linked article per concept. Every note you add makes the wiki richer. Every article stays on your machine unless you decide otherwise.
+You drop Markdown notes in a folder. Notus reads them with a local LLM, extracts the concepts they contain, and writes one cross-linked article per concept. Every note you add makes the wiki richer. Every article stays on your machine unless you decide otherwise.
 
 After setup (~5 minutes) you have: a structured wiki built from your notes, a queryable knowledge base that works without embeddings or a vector database, and an agent-ready pack that Claude, Cursor, or any file-aware AI can install and reason over — including reading your sources' exact words on demand over MCP.
 
@@ -26,7 +26,8 @@ After setup (~5 minutes) you have: a structured wiki built from your notes, a qu
 </p>
 
 > [!NOTE]
-> Synto succeeds [obsidian-llm-wiki-local](https://github.com/kytmanov/obsidian-llm-wiki-local) (608 ★, 9k+ downloads) — same proven local pipeline, redesigned for distributable knowledge packs.
+> Notus was previously named **Synto**. Existing vaults (`synto.toml`, `.synto/`) still open.
+> Notus succeeds [obsidian-llm-wiki-local](https://github.com/kytmanov/obsidian-llm-wiki-local) (608 ★, 9k+ downloads) — same proven local pipeline, redesigned for distributable knowledge packs.
 
 ---
 
@@ -38,7 +39,7 @@ The key insight: **treat your notes as source material, not as the final artifac
 
 ```
 You write raw notes  →  LLM extracts concepts  →  Wiki articles grow  →  Agent-ready pack
-      raw/                    (automatic)              wiki/             .synto/exports/
+      raw/                    (automatic)              wiki/             .notus/exports/
   quantum.md           "Qubit", "Superposition"     Qubit.md
   ml-basics.md         "Neural Net", "SGD"          Superposition.md ←── [[wikilinks]]
   physics.md           "Qubit"  ← same concept      Neural_Network.md
@@ -59,9 +60,9 @@ Four stages. Two LLM tiers.
 ┌────────────────────────────────────────────────────────────────────────┐
 │  Stage 1: Import  Stage 2: Ingest  Stage 3: Compile  Stage 4: Export  │
 │                                                                        │
-│  synto add ─────┐                                                      │
+│  notus add ─────┐                                                      │
 │  (PDF/md/txt)   ├─ raw/*.md ──────► wiki/.drafts/ ──────► exports/    │
-│  .synto/sources/┘  fast model       heavy model      agent-ready      │
+│  .notus/sources/┘  fast model       heavy model      agent-ready      │
 │                    (4B params)      (14B+ params)     directory        │
 │                                                                        │
 │  archives:         extracts:        writes:           produces:       │
@@ -76,21 +77,21 @@ Four stages. Two LLM tiers.
 
 **Why two LLM tiers?** Analysis is pattern-matching — a 4B model running locally can extract "this note is about Qubit, Superposition, and Entanglement" reliably and fast. Writing a coherent, cross-linked article requires more reasoning — a 14B+ model does this well. Splitting the work keeps the pipeline cheap and fast on consumer hardware.
 
-**Your vault layout after `synto init`:**
+**Your vault layout after `notus init`:**
 
 ```
 ~/my-wiki/
-  raw/              ← drop your notes here (Synto never modifies these)
+  raw/              ← drop your notes here (Notus never modifies these)
   wiki/             ← published articles (Obsidian-compatible Markdown)
     .drafts/        ← LLM-generated articles waiting for your review
     sources/        ← per-note source summary pages
     queries/        ← saved Q&A sessions
     synthesis/      ← synthesized answers published as wiki pages
-  .synto/
+  .notus/
     state.db        ← SQLite: note lifecycle, concept registry, metrics
-    sources/        ← originals archived via synto add (PDF, md, txt)
-    exports/agents/ ← agent-ready export (synto pack export; --out to relocate)
-  synto.toml        ← vault config (provider, models, pipeline settings)
+    sources/        ← originals archived via notus add (PDF, md, txt)
+    exports/agents/ ← agent-ready export (notus pack export; --out to relocate)
+  notus.toml        ← vault config (provider, models, pipeline settings)
 ```
 
 ### Key mechanisms
@@ -100,22 +101,22 @@ Four stages. Two LLM tiers.
 **Rejection feedback loop.** Reject a draft and explain why. The reason is stored and injected into the LLM prompt the next time that concept compiles, so the model can address it. Five rejections auto-block the concept until you re-enable it.
 
 ```bash
-synto reject wiki/.drafts/Qubit.md --feedback "Too abstract, needs a hardware analogy"
+notus reject wiki/.drafts/Qubit.md --feedback "Too abstract, needs a hardware analogy"
 # next compile: prompt includes your feedback → better draft
 ```
 
 **Confidence scores.** Each compiled draft gets a confidence score (0–1). Approve selectively or set a threshold — drafts below it stay in `.drafts/` for manual review.
 
 ```bash
-synto verify --min-confidence 0.8               # mark trusted drafts as verified
-synto approve --min-confidence 0.8              # publish reviewed or fresh drafts to wiki/
+notus verify --min-confidence 0.8               # mark trusted drafts as verified
+notus approve --min-confidence 0.8              # publish reviewed or fresh drafts to wiki/
 ```
 
-**Three-state lifecycle.** Drafts move through `draft` → `verified` → `published`. `synto verify` marks a reviewed draft as `verified` in place (frontmatter `status: verified`, file stays in `.drafts/`). `synto approve` publishes drafts to `wiki/`, preserving the existing publish workflow while allowing an explicit staged review step.
+**Three-state lifecycle.** Drafts move through `draft` → `verified` → `published`. `notus verify` marks a reviewed draft as `verified` in place (frontmatter `status: verified`, file stays in `.drafts/`). `notus approve` publishes drafts to `wiki/`, preserving the existing publish workflow while allowing an explicit staged review step.
 
-**Hand-edit protection.** Edit a published article in Obsidian or any editor. Synto tracks a SHA-256 content hash and detects your change on the next run — your edits are never overwritten by a recompile.
+**Hand-edit protection.** Edit a published article in Obsidian or any editor. Notus tracks a SHA-256 content hash and detects your change on the next run — your edits are never overwritten by a recompile.
 
-**No embeddings, no vector database.** `synto query` routes questions to relevant articles using `INDEX.json`. It works on any machine without a GPU, FAISS, or Chroma.
+**No embeddings, no vector database.** `notus query` routes questions to relevant articles using `INDEX.json`. It works on any machine without a GPU, FAISS, or Chroma.
 
 **Source-type analysis.** Imported documents carry a type — `notes`, `textbook`, `paper`,
 `spec`, `api_docs`, `web_article`, `corp_docs`, `transcript`, or `unknown_text`. During ingest
@@ -124,7 +125,7 @@ abstract/methods/results structure; an `api_docs` prompt preserves parameter nam
 `textbook` prompt follows chapter/definition flow. If `--type` is omitted, PDFs default to
 `paper` and everything else to `notes` — pass `--type` for anything more specific. Long-form
 source types also get higher built-in concept ceilings during ingest: `textbook` defaults to
-25 concepts and `paper` to 15 unless you set an explicit override in `synto.toml`.
+25 concepts and `paper` to 15 unless you set an explicit override in `notus.toml`.
 
 **Concept identity and curation.** A concept's identity is a stable `entity_id`, not its
 name. Names and surface forms are just labels pointing at that id, so you can rename,
@@ -154,48 +155,48 @@ candidate instead of silently absorbing it, so you decide.
 
 **Diagnose:**
 
-- `synto doctor` / `synto maintain` — surface duplicate-name collisions and merge candidates.
-- `synto concept inspect NAME` — show the backing entity, its aliases, sources, ambiguous
+- `notus doctor` / `notus maintain` — surface duplicate-name collisions and merge candidates.
+- `notus concept inspect NAME` — show the backing entity, its aliases, sources, ambiguous
   occurrences, and suggested actions.
 
-**Reshape identity** (all support `--dry-run`, auto-commit, and are reversible with `synto undo`):
+**Reshape identity** (all support `--dry-run`, auto-commit, and are reversible with `notus undo`):
 
-- `synto concept rename OLD NEW [--keep-old-alias]` — relabel in place, keeping the old name
+- `notus concept rename OLD NEW [--keep-old-alias]` — relabel in place, keeping the old name
   as an alias by default so re-ingested notes don't recreate it.
-- `synto concept merge LOSER WINNER [--absorb-edits]` — move sources and edges onto the
+- `notus concept merge LOSER WINNER [--absorb-edits]` — move sources and edges onto the
   winner, retire the loser article, and keep the loser's labels as aliases on the winner.
-- `synto concept split NAME --sense SENSE SOURCE_PATH ...` — partition a concept's sources
+- `notus concept split NAME --sense SENSE SOURCE_PATH ...` — partition a concept's sources
   across senses (repeat `--sense` per source) and leave a disambiguation page at the old name.
-- `synto concept unmerge NAME` — best-effort reverse of the most recent merge for that name.
-  Several things are not restored; see `synto concept unmerge --help` for the exact contract.
+- `notus concept unmerge NAME` — best-effort reverse of the most recent merge for that name.
+  Several things are not restored; see `notus concept unmerge --help` for the exact contract.
 
 **Fix a wrong alias** (auto-commits; no `--dry-run`):
 
 The fast model sometimes attaches a surface form to the wrong entity — a library name
 landing as an alias of the project that uses it. That is too small a problem for a merge:
 
-- `synto concept alias add ENTITY ALIAS` — attach a surface form you know belongs here.
-- `synto concept alias remove ENTITY ALIAS` — detach it, and record a denial tombstone so
+- `notus concept alias add ENTITY ALIAS` — attach a surface form you know belongs here.
+- `notus concept alias remove ENTITY ALIAS` — detach it, and record a denial tombstone so
   the next ingest can't silently re-attach it.
-- `synto concept alias move FROM_ENTITY TO_ENTITY ALIAS` — re-point it to the right entity
+- `notus concept alias move FROM_ENTITY TO_ENTITY ALIAS` — re-point it to the right entity
   in one step.
 
 `remove` and `move` also fix any `[[Canonical|Alias]]` wiki links the wrong alias had produced.
 
 **Resolve homonyms:**
 
-- `synto concept keep SURFACE ENTITY` — assign the ambiguous occurrences of a surface form to
+- `notus concept keep SURFACE ENTITY` — assign the ambiguous occurrences of a surface form to
   one entity. This updates the state DB directly; it does not auto-commit and is not reversible
-  with `synto undo`.
+  with `notus undo`.
 
 Example — splitting a homonym into two concepts:
 
 ```bash
-synto concept split Mercury --sense planet raw/astronomy.md --sense element raw/chemistry.md
+notus concept split Mercury --sense planet raw/astronomy.md --sense element raw/chemistry.md
 ```
 
-`git revert` on a curation commit will not restore the database (`.synto/state.db` is
-gitignored). For the auto-committing commands above, `synto undo` detects these batches and
+`git revert` on a curation commit will not restore the database (`.notus/state.db` is
+gitignored). For the auto-committing commands above, `notus undo` detects these batches and
 names the correct inverse command.
 
 ---
@@ -208,11 +209,11 @@ names the correct inverse command.
 
 **Course material as a wiki**
 
-[Andrej Karpathy's LLM Wiki idea](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) works well for learning. Start with lectures, transcripts, and notes from a course like Karpathy's neural-network series. Instead of searching through raw files every time you ask a question, Synto turns them into a linked wiki that grows as you add more material. Then an agent can answer questions about backpropagation, attention, or training using your own course material. Good answers can also be saved back into the wiki, so it becomes more useful over time.
+[Andrej Karpathy's LLM Wiki idea](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) works well for learning. Start with lectures, transcripts, and notes from a course like Karpathy's neural-network series. Instead of searching through raw files every time you ask a question, Notus turns them into a linked wiki that grows as you add more material. Then an agent can answer questions about backpropagation, attention, or training using your own course material. Good answers can also be saved back into the wiki, so it becomes more useful over time.
 
 **Your own research notes**
 
-Works today with Markdown. Drop notes in `raw/`, run `synto run`, and get a cross-linked wiki exported as an agent-ready pack. Expose it via `synto serve` as a local MCP server, or ship the pack directory for any file-aware agent to use.
+Works today with Markdown. Drop notes in `raw/`, run `notus run`, and get a cross-linked wiki exported as an agent-ready pack. Expose it via `notus serve` as a local MCP server, or ship the pack directory for any file-aware agent to use.
 
 ---
 
@@ -220,21 +221,21 @@ Works today with Markdown. Drop notes in `raw/`, run `synto run`, and get a cros
 
 **Incremental compiles.** Each concept gets its own article. When you change a source note, only the articles tied to that note recompile — not the whole vault.
 
-**Rejection feedback.** Reject a draft and attach a reason. The next compile of that concept includes your feedback in the prompt. Five rejections auto-block the concept until you run `synto unblock`.
+**Rejection feedback.** Reject a draft and attach a reason. The next compile of that concept includes your feedback in the prompt. Five rejections auto-block the concept until you run `notus unblock`.
 
-**Hand-edit protection.** Edit any published article directly. Synto tracks a content hash — if the file changed since last compile, it won't overwrite your work.
+**Hand-edit protection.** Edit any published article directly. Notus tracks a content hash — if the file changed since last compile, it won't overwrite your work.
 
-**Interactive review.** `synto review` opens a terminal UI per draft: read the article, approve, reject with feedback, launch your editor, or diff against the previous version. Full control over what enters your wiki.
+**Interactive review.** `notus review` opens a terminal UI per draft: read the article, approve, reject with feedback, launch your editor, or diff against the previous version. Full control over what enters your wiki.
 
-**File watcher.** `synto watch` runs in the background and processes anything you drop into `raw/` automatically. Ingest and compile happen while you keep writing.
+**File watcher.** `notus watch` runs in the background and processes anything you drop into `raw/` automatically. Ingest and compile happen while you keep writing.
 
-**Query and synthesize.** `synto query "what is X?"` answers from your published wiki without embeddings or a vector database. Add `--synthesize` to save the answer as a permanent wiki page with source citations and hand-edit protection. If your vault has relations (below), the query also pulls in up to 2 related articles via one hop across the concept graph.
+**Query and synthesize.** `notus query "what is X?"` answers from your published wiki without embeddings or a vector database. Add `--synthesize` to save the answer as a permanent wiki page with source citations and hand-edit protection. If your vault has relations (below), the query also pulls in up to 2 related articles via one hop across the concept graph.
 
-**Reverse lookup.** `synto find "raft"` searches the wiki and returns ranked matches: concept names and aliases first, then article titles, then first-paragraph body text. Use it when you know a term but not which article covers it.
+**Reverse lookup.** `notus find "raft"` searches the wiki and returns ranked matches: concept names and aliases first, then article titles, then first-paragraph body text. Use it when you know a term but not which article covers it.
 
 **Concept relations.** An opt-in third ingest pass extracts directed relations between concepts your vault already knows about — "Raft depends_on Consensus" — each backed by a verbatim quote from the source. Compiled articles list their top 10 relations in a `relations:` frontmatter block, packs ship the resulting graph, and queries traverse it. Relations are only recorded between known concepts and their aliases, so endpoints the model invents never enter the graph.
 
-It is off by default because it costs one extra LLM call per chunk. Enable it in `synto.toml`:
+It is off by default because it costs one extra LLM call per chunk. Enable it in `notus.toml`:
 
 ```toml
 [pipeline]
@@ -243,14 +244,14 @@ relation_extraction = true
 
 Relations from a source you later delete are not garbage-collected yet.
 
-**Pack export.** `synto pack export --target agents` produces a portable directory any file-aware agent can read: articles, `INDEX.json` for fast concept lookup, source provenance, and agent-readable entry points. Vaults with relations also get `graph/graph.json` and a `graph` capability in the manifest.
+**Pack export.** `notus pack export --target agents` produces a portable directory any file-aware agent can read: articles, `INDEX.json` for fast concept lookup, source provenance, and agent-readable entry points. Vaults with relations also get `graph/graph.json` and a `graph` capability in the manifest.
 
-**MCP server.** `synto serve` exposes your wiki as a local MCP server with 12 tools. Eight cover the published wiki: `list_articles`, `read_article`, `find_concept`, `search_articles`, `get_concept`, `list_sources`, `trace_lineage`, and `answer_question`. Four more (below) expose the raw source text. Wire it into Claude Code, Cursor, or any MCP-compatible client in one command. Drafts are hidden by default; `answer_question` runs the same routed query as `synto query` end-to-end (uses both fast and heavy models, and follows the concept graph the same way), so it may cost money on paid providers.
+**MCP server.** `notus serve` exposes your wiki as a local MCP server with 12 tools. Eight cover the published wiki: `list_articles`, `read_article`, `find_concept`, `search_articles`, `get_concept`, `list_sources`, `trace_lineage`, and `answer_question`. Four more (below) expose the raw source text. Wire it into Claude Code, Cursor, or any MCP-compatible client in one command. Drafts are hidden by default; `answer_question` runs the same routed query as `notus query` end-to-end (uses both fast and heavy models, and follows the concept graph the same way), so it may cost money on paid providers.
 
 ### Verbatim source tools
 
 Four additional MCP tools expose raw source paragraphs to frontier-model callers.
-Use them when you want the source's own words, not a synto-generated synthesis.
+Use them when you want the source's own words, not a notus-generated synthesis.
 (For a ready-made answer from your own local models instead, use `answer_question`.)
 
 - `read_source_segment(segment_id)` — fetch one paragraph by id.
@@ -262,7 +263,7 @@ Use them when you want the source's own words, not a synto-generated synthesis.
 
 #### Privacy and source access
 
-Raw-paragraph access is governed by `[mcp.source_access]` in `synto.toml`:
+Raw-paragraph access is governed by `[mcp.source_access]` in `notus.toml`:
 
 ```toml
 [mcp.source_access]
@@ -277,25 +278,25 @@ permissive_licenses = ["CC-BY", "CC-BY-SA", "MIT", "Apache-2.0", "BSD-3-Clause",
 - **`deny`** — the four verbatim tools refuse all raw passages.
 
 **Legacy-vault behavior (important).** A vault with no declared license on any source
-cannot return anything under `permissive_only`, so to keep the feature working `synto`
+cannot return anything under `permissive_only`, so to keep the feature working `notus`
 treats such vaults as `"all"` until you declare a license or set `mode` explicitly. That
 means **all raw source text is readable by any connected MCP client.** This is surfaced as
-a WARNING at `synto serve` startup and in `synto doctor`. If your vault holds private or
+a WARNING at `notus serve` startup and in `notus doctor`. If your vault holds private or
 copyrighted material, declare licenses on your sources or set `mode` explicitly, then
 restart `serve`.
 
 **Audit detail.** `[mcp] audit_detailed` (default `false`) keeps query text and resolved
 labels as 8-char hashes in the local state DB. Set it to `true` only if you want the
-`synto doctor --backlog` report to show literal query text — it writes raw queries to the
+`notus doctor --backlog` report to show literal query text — it writes raw queries to the
 DB. The backlog report works either way.
 
 **SQLite without FTS5.** If your SQLite build lacks the FTS5 module, the search index is
 skipped on upgrade (with a warning) and only `search_source_segments` is unavailable; the
 other three verbatim tools and every other command keep working.
 
-**Self-maintenance.** `synto maintain` repairs broken wikilinks, creates stubs for missing targets, and reports orphans, stale articles, and missing frontmatter. `--dry-run` shows the structural-health report without changing anything.
+**Self-maintenance.** `notus maintain` repairs broken wikilinks, creates stubs for missing targets, and reports orphans, stale articles, and missing frontmatter. `--dry-run` shows the structural-health report without changing anything.
 
-A mature vault accumulates advisories that are true by construction and will never be fixed — they crowd out the findings you do care about. Acknowledge them in `synto.toml` and `maintain` collapses them into a one-line count:
+A mature vault accumulates advisories that are true by construction and will never be fixed — they crowd out the findings you do care about. Acknowledge them in `notus.toml` and `maintain` collapses them into a one-line count:
 
 ```toml
 [maintain]
@@ -304,18 +305,18 @@ ack = ["graph_noise", "missing_media:wiki/Imported Note.md"]
 
 An entry is a check name (matching every path) or `check:vault-relative-path` (matching one file). Only advisory checks can be acked — structural problems like orphans and broken links always report. Acks are display-only: the health score and the advisory count are unaffected, so acking never flatters the report.
 
-**A/B model comparison.** `synto compare` runs your query set against two different models in isolated copies of your vault so you can evaluate a model switch without touching anything live.
+**A/B model comparison.** `notus compare` runs your query set against two different models in isolated copies of your vault so you can evaluate a model switch without touching anything live.
 
-**Quality evaluation.** `synto eval` scores your wiki offline: concept coverage, citation support, link resolution, `INDEX.json` validity. Run it before a pack export or in CI.
+**Quality evaluation.** `notus eval` scores your wiki offline: concept coverage, citation support, link resolution, `INDEX.json` validity. Run it before a pack export or in CI.
 
-**Diagnostics.** `synto doctor` checks your configuration, provider connectivity, and vault integrity — start here when something isn't working.
+**Diagnostics.** `notus doctor` checks your configuration, provider connectivity, and vault integrity — start here when something isn't working.
 
 **Multi-language.** Each note's language is auto-detected at ingest. Articles are written in that language. No hard-coded word lists or language config required.
 
-**Git-aware.** Every automatic operation commits with a `[synto]` prefix. `synto undo` reverts the last N auto-commits. Raw notes are never modified.
+**Git-aware.** Every automatic operation commits with a `[notus]` prefix. `notus undo` reverts the last N auto-commits. Raw notes are never modified.
 
-**Source import.** `synto add` imports PDFs, Markdown, and text files as tracked source
-documents. PDFs are segmented into heading-aware chunks, archived under `.synto/sources/`,
+**Source import.** `notus add` imports PDFs, Markdown, and text files as tracked source
+documents. PDFs are segmented into heading-aware chunks, archived under `.notus/sources/`,
 and written back as canonical `raw/*.md` notes for the normal ingest flow. Pick the right
 type for your document to get the matching ingest-analysis prompt:
 
@@ -332,18 +333,18 @@ type for your document to get the matching ingest-analysis prompt:
 | `unknown_text` | Fallback when text doesn't fit a richer source type |
 
 **Compile lineage and provenance tracing.** Every compiled article records which source
-notes and compile run it came from. `synto trace` answers:
+notes and compile run it came from. `notus trace` answers:
 
 - `trace article <name>` — the article's full history: timestamp, model, contributing sources.
 - `trace term <term>` — source occurrences and covering published articles for a concept (name or alias).
 - `trace citation <segment-id>` — which articles consumed a given source segment.
 
 **LLM response cache.** Identical prompts reuse cached responses from a local SQLite
-table instead of hitting the model. `synto maintain --clear-cache` flushes it;
+table instead of hitting the model. `notus maintain --clear-cache` flushes it;
 `--older-than N` prunes entries older than N days.
 
-**Pack extension flag.** `synto add --extend-pack NAME` is reserved for future pack-scoped
-imports and is currently a safe no-op that does not mutate `synto.toml`.
+**Pack extension flag.** `notus add --extend-pack NAME` is reserved for future pack-scoped
+imports and is currently a safe no-op that does not mutate `notus.toml`.
 
 ---
 
@@ -357,7 +358,7 @@ cargo install --git https://github.com/kytmanov/synto --locked
 cargo install --path .
 ```
 
-The MCP server (`synto serve`) ships in the same binary — no extras flag needed.
+The MCP server (`notus serve`) ships in the same binary — no extras flag needed.
 
 ---
 
@@ -376,14 +377,14 @@ ollama pull qwen2.5:14b     # heavy model — article writing
 ### 2. Run the setup wizard
 
 ```bash
-synto setup
+notus setup
 ```
 
 An interactive wizard selects your provider, configures the endpoint, picks models, and optionally sets a default vault. Takes about 30 seconds.
 
 ```
 ╭──────────────────────────────────────────────╮
-│         synto  ·  setup                      │
+│         notus  ·  setup                      │
 ╰──────────────────────────────────────────────╯
 
   Step 1  Provider
@@ -409,15 +410,15 @@ An interactive wizard selects your provider, configures the endpoint, picks mode
     Select [1]: _
 ```
 
-Settings are saved to `~/.config/synto/config.toml`. API keys are stored only in this user-private file, never inside your vault.
+Settings are saved to `~/.config/notus/config.toml`. API keys are stored only in this user-private file, never inside your vault.
 
 ### 3. Create a vault
 
 ```bash
-synto init ~/my-wiki
+notus init ~/my-wiki
 ```
 
-Creates the folder structure and a `synto.toml` pre-filled with your wizard settings.
+Creates the folder structure and a `notus.toml` pre-filled with your wizard settings.
 
 ### 4. Add notes and sources
 
@@ -433,61 +434,61 @@ Drop any `.md` files into `~/my-wiki/raw/`. Web clips, book notes, meeting notes
 **To import a PDF or other structured document:**
 
 ```bash
-synto add paper.pdf --type paper --vault ~/my-wiki
-synto add textbook_chapter.pdf --type textbook --vault ~/my-wiki
-synto add api-reference.md --type api_docs --vault ~/my-wiki
+notus add paper.pdf --type paper --vault ~/my-wiki
+notus add textbook_chapter.pdf --type textbook --vault ~/my-wiki
+notus add api-reference.md --type api_docs --vault ~/my-wiki
 ```
 
 Use `--type` to select the matching ingest-analysis prompt (see the table in Features).
 If omitted, PDFs are treated as `paper` and everything else as `notes` — pass `--type` for
 anything more specific (`spec`, `transcript`, `api_docs`, …).
 
-`synto add --force` re-imports an existing source in place. `--extend-pack` is reserved for
+`notus add --force` re-imports an existing source in place. `--extend-pack` is reserved for
 future pack integration and is currently a safe no-op.
 
 ### 5. Run the pipeline
 
 ```bash
-synto run --vault ~/my-wiki
+notus run --vault ~/my-wiki
 ```
 
 Ingest + compile. Drafts appear in `wiki/.drafts/`. Then review and publish:
 
 ```bash
-synto review --vault ~/my-wiki                    # inspect each draft: approve / verify / reject / edit
+notus review --vault ~/my-wiki                    # inspect each draft: approve / verify / reject / edit
 # or
-synto verify --all --vault ~/my-wiki              # mark all drafts verified in place
-synto approve --all --vault ~/my-wiki             # publish drafts to wiki/
+notus verify --all --vault ~/my-wiki              # mark all drafts verified in place
+notus approve --all --vault ~/my-wiki             # publish drafts to wiki/
 ```
 
 **One-command flow** (skip review):
 ```bash
-synto run --auto-approve --vault ~/my-wiki
+notus run --auto-approve --vault ~/my-wiki
 ```
 
 **Set-it-and-forget-it** (auto-process every time you save a note):
 ```bash
-synto watch --vault ~/my-wiki
+notus watch --vault ~/my-wiki
 ```
 
 **Query your wiki** once articles are published:
 ```bash
-synto query "what is consistent hashing?" --vault ~/my-wiki
-synto query "explain backpropagation" --vault ~/my-wiki --synthesize
+notus query "what is consistent hashing?" --vault ~/my-wiki
+notus query "explain backpropagation" --vault ~/my-wiki --synthesize
 ```
 
 **Expose as MCP server** (Claude Code, Cursor, any MCP client). For local stdio mode,
-`synto serve` is launched *by* the client, not run by hand — point your client's config
+`notus serve` is launched *by* the client, not run by hand — point your client's config
 at it:
 ```json
-{ "mcpServers": { "synto": { "command": "synto", "args": ["serve", "--vault", "~/my-wiki"] } } }
+{ "mcpServers": { "notus": { "command": "notus", "args": ["serve", "--vault", "~/my-wiki"] } } }
 ```
 Run by hand it will print a "waiting for a client" line on stderr and otherwise sit
 idle — that is expected, not a hang.
 
 For remote MCP clients that support Streamable HTTP, run:
 ```bash
-synto serve --vault ~/my-wiki --transport streamable-http --host 127.0.0.1 --port 8000
+notus serve --vault ~/my-wiki --transport streamable-http --host 127.0.0.1 --port 8000
 ```
 Then connect the client to `http://127.0.0.1:8000/mcp`. To reach it from another machine,
 bind a routable address — `--host 0.0.0.0` — and treat it as a trusted-network-only or
@@ -498,21 +499,21 @@ reverse proxy. DNS-rebinding protection is enforced: only `Host` headers for loo
 the bind address are accepted. When fronting it with a reverse proxy (which forwards its
 own public hostname), add that hostname so requests are not rejected:
 ```bash
-synto serve --vault ~/my-wiki --transport streamable-http --host 127.0.0.1 \
-  --allowed-host synto.example.com
+notus serve --vault ~/my-wiki --transport streamable-http --host 127.0.0.1 \
+  --allowed-host notus.example.com
 ```
 
-If you bind wildcard IPv6 with `--host ::`, Synto still auto-allows only loopback.
+If you bind wildcard IPv6 with `--host ::`, Notus still auto-allows only loopback.
 Add any remote IPv6 literal or public hostname explicitly, for example:
 ```bash
-synto serve --vault ~/my-wiki --transport streamable-http --host :: \
+notus serve --vault ~/my-wiki --transport streamable-http --host :: \
   --allowed-host "[2001:db8::5]"
 ```
 
 Note: source-access privacy applies over HTTP exactly as locally. If no source declares a
 license, the privacy gate opens to `all` and raw source text becomes readable by any
 connected client — far riskier over a network. Declare licenses or set `[mcp.source_access]`
-in `synto.toml` before exposing the server.
+in `notus.toml` before exposing the server.
 
 ---
 
@@ -535,7 +536,7 @@ in `synto.toml` before exposing the server.
 | | Kimi (Anthropic-compatible) |
 | | Custom OpenAI-compatible |
 
-Any OpenAI-compatible endpoint works. Use `synto setup` to configure interactively, or edit `~/.config/synto/config.toml` directly.
+Any OpenAI-compatible endpoint works. Use `notus setup` to configure interactively, or edit `~/.config/notus/config.toml` directly.
 
 ### Per-role providers
 
@@ -565,29 +566,29 @@ ctx      = 32768
 
 The API key belongs to the provider block, so each model can have its own key (point two
 blocks at the same provider with different `api_key_env`) or none at all (local providers).
-Keys are read from the named env var, the provider's conventional env var, `SYNTO_API_KEY`,
-or the user-private `~/.config/synto/config.toml` — **never** from the vault's `synto.toml`.
+Keys are read from the named env var, the provider's conventional env var, `NOTUS_API_KEY`,
+or the user-private `~/.config/notus/config.toml` — **never** from the vault's `notus.toml`.
 
-`api_key_env` only names an env var — it doesn't set one. synto reads it from the environment
-at run time, so it must be exported in the shell that runs `synto`, not just typed once during
-`synto setup`:
+`api_key_env` only names an env var — it doesn't set one. notus reads it from the environment
+at run time, so it must be exported in the shell that runs `notus`, not just typed once during
+`notus setup`:
 
 ```bash
 export NVIDIA_API_KEY=...
-synto compile --vault ~/my-wiki
+notus compile --vault ~/my-wiki
 ```
 
-Run `synto doctor` to check whether a role's key actually resolves before you hit a 401 mid-run.
+Run `notus doctor` to check whether a role's key actually resolves before you hit a 401 mid-run.
 
-`synto setup` can configure this interactively: after you pick the primary provider and fast
+`notus setup` can configure this interactively: after you pick the primary provider and fast
 model, answer "yes" to "Use a different provider for the heavy (writing) model?" and the primary
 is reused as the fast role while you set up the heavy one. It saves the split to the global config
-so `synto init` reproduces it for new vaults.
-Re-running `synto init` only re-syncs a simple single-provider vault whose provider matches your
+so `notus init` reproduces it for new vaults.
+Re-running `notus init` only re-syncs a simple single-provider vault whose provider matches your
 global default; in that case any per-model `options`/`think` you hand-edited there are replaced.
 It leaves a vault untouched when there is no global config, when the vault is set to a different
 provider than the global default, or when the vault already splits roles across providers (a
-per-role setup). Change those via `synto setup` or by editing `synto.toml` directly.
+per-role setup). Change those via `notus setup` or by editing `notus.toml` directly.
 
 #### NVIDIA / NGC
 
@@ -614,12 +615,12 @@ NVIDIA inference is OpenAI-compatible; pick the block that matches how your mode
   `api_key_env = "NVIDIA_API_KEY"` (an `nvapi-` key).
 
 The legacy `/v2/nvcf/pexec` invocation form is not OpenAI-compatible and is not supported — use
-the LLM Gateway URL. `synto doctor` may list an NVCF model as "not found" if the per-function
+the LLM Gateway URL. `notus doctor` may list an NVCF model as "not found" if the per-function
 gateway has no `/v1/models`; that doesn't mean inference is broken.
 
 ### Advanced model parameters
 
-These are hand-edit-only (not prompted by `synto setup`):
+These are hand-edit-only (not prompted by `notus setup`):
 
 ```toml
 [models.heavy]
@@ -641,47 +642,47 @@ request as-is and override the matching first-class field, so set computed value
 ## What ships now
 
 - Full ingest → compile → approve pipeline; supports Markdown notes and Obsidian vaults
-- `synto pack export --target agents` — portable knowledge pack with `INDEX.json`, agent metadata, and `graph/graph.json` when the vault has relations
-- `synto serve` — MCP server with stdio and Streamable HTTP transports, exposing 12 tools. Eight wiki tools: `list_articles`, `read_article`, `find_concept`, `search_articles`, `get_concept`, `list_sources`, `trace_lineage`, `answer_question`. Four verbatim-source tools: `search_source_segments`, `get_source_passages`, `read_source_segment`, `list_segments`. Quality signals (`status`, `confidence`, `source_count`, `single_source`) are surfaced on every article ref so agents can self-filter; `min_status` defaults to `"published"` to keep drafts out of agent context.
-- `synto doctor --backlog` — reads the MCP audit log to show what to ingest next: zero-result queries, single-source concepts in active demand, and the verbatim-vs-`answer_question` tool mix.
-- `synto query` — index-routed Q&A with optional synthesis to `wiki/synthesis/`, plus
+- `notus pack export --target agents` — portable knowledge pack with `INDEX.json`, agent metadata, and `graph/graph.json` when the vault has relations
+- `notus serve` — MCP server with stdio and Streamable HTTP transports, exposing 12 tools. Eight wiki tools: `list_articles`, `read_article`, `find_concept`, `search_articles`, `get_concept`, `list_sources`, `trace_lineage`, `answer_question`. Four verbatim-source tools: `search_source_segments`, `get_source_passages`, `read_source_segment`, `list_segments`. Quality signals (`status`, `confidence`, `source_count`, `single_source`) are surfaced on every article ref so agents can self-filter; `min_status` defaults to `"published"` to keep drafts out of agent context.
+- `notus doctor --backlog` — reads the MCP audit log to show what to ingest next: zero-result queries, single-source concepts in active demand, and the verbatim-vs-`answer_question` tool mix.
+- `notus query` — index-routed Q&A with optional synthesis to `wiki/synthesis/`, plus
   1-hop concept-graph expansion when relations exist
-- `synto find QUERY` — reverse lookup over the wiki, ranked by concept/alias, title, then body
+- `notus find QUERY` — reverse lookup over the wiki, ranked by concept/alias, title, then body
 - Concept relations (opt-in `[pipeline] relation_extraction`) — a fast-model ingest pass
   extracts directed, evidence-backed relations between known concepts; articles carry a
   `relations:` frontmatter block and packs export the graph
-- `synto review` — interactive draft review: approve, reject, edit, or diff before publishing
-- `synto concept rename|merge|split|unmerge|inspect|keep|alias` — stable entity identity and
-  curation: `synto doctor`/`maintain` surface candidates and collisions; `inspect` diagnoses
+- `notus review` — interactive draft review: approve, reject, edit, or diff before publishing
+- `notus concept rename|merge|split|unmerge|inspect|keep|alias` — stable entity identity and
+  curation: `notus doctor`/`maintain` surface candidates and collisions; `inspect` diagnoses
   and `keep` resolves homonyms; `merge` folds two concepts into one and `split` creates a
   disambiguation page; `unmerge` is best-effort with explicit limitations (see command help);
   `--dry-run` on `rename`/`merge`/`split`; `alias add|remove|move` fixes a misattached
   surface form, with a denial tombstone so re-ingest can't reattach it.
-- `synto watch` — file watcher: auto-ingest and compile on every save
-- `synto maintain` — wiki health check, stub creation, orphan cleanup; `[maintain] ack`
+- `notus watch` — file watcher: auto-ingest and compile on every save
+- `notus maintain` — wiki health check, stub creation, orphan cleanup; `[maintain] ack`
   collapses known advisories without touching the health score
-- `synto eval` — offline structural evaluation (coverage, citation support, link resolution)
-- `synto compare` — A/B model comparison without touching your vault
-- `synto doctor` — configuration and connectivity diagnostics
+- `notus eval` — offline structural evaluation (coverage, citation support, link resolution)
+- `notus compare` — A/B model comparison without touching your vault
+- `notus doctor` — configuration and connectivity diagnostics
 - Multi-language: notes are ingested and compiled in their source language
 - 20+ LLM providers supported via OpenAI-compatible API
-- `synto add SOURCE` — import PDF, Markdown, or text files as tracked source documents;
+- `notus add SOURCE` — import PDF, Markdown, or text files as tracked source documents;
   PDFs are segmented automatically into heading-aware chunks and written back as canonical raw notes
 - Source-type prompts: built-in templates for `notes`, `textbook`, `paper`, `spec`,
   `api_docs`, `web_article`, `corp_docs`, `transcript`, plus `unknown_text` fallback,
   select the optimal ingest strategy per document type
 - Compile lineage: every article records its source notes and compile run;
-  `synto trace article|term|relation|citation` traces history, term occurrences,
+  `notus trace article|term|relation|citation` traces history, term occurrences,
   relation evidence, and which articles consumed a source segment
 - LLM response cache: identical prompts reuse cached responses;
-  `synto maintain --clear-cache` manages it
+  `notus maintain --clear-cache` manages it
 
 ---
 
 ## What's in a pack
 
 ```
-.synto/exports/agents/   ← default output dir (synto pack export; --out DIR to relocate)
+.notus/exports/agents/   ← default output dir (notus pack export; --out DIR to relocate)
   articles/           one Markdown file per concept
   synthesis/          published synthesis articles (when present)
   index/
@@ -698,7 +699,7 @@ request as-is and override the matching first-class field, so set computed value
   CLAUDE.md           Claude Code context file
 ```
 
-Any file-aware agent can read the articles directly. `INDEX.json` enables fast concept lookup without a database. When `graph/graph.json` is present, every edge endpoint resolves to a node in the same file, so a consumer can assume a closed graph and walk it without lookups back into the vault. `synto serve` exposes 12 MCP tools — browse (`list_articles`), read (`read_article`, `get_concept`, `trace_lineage`, `list_sources`), search (`search_articles`, `find_concept`), answer (`answer_question`, which runs the full query pipeline), and read raw source text (`search_source_segments`, `get_source_passages`, `read_source_segment`, `list_segments`).
+Any file-aware agent can read the articles directly. `INDEX.json` enables fast concept lookup without a database. When `graph/graph.json` is present, every edge endpoint resolves to a node in the same file, so a consumer can assume a closed graph and walk it without lookups back into the vault. `notus serve` exposes 12 MCP tools — browse (`list_articles`), read (`read_article`, `get_concept`, `trace_lineage`, `list_sources`), search (`search_articles`, `find_concept`), answer (`answer_question`, which runs the full query pipeline), and read raw source text (`search_source_segments`, `get_source_passages`, `read_source_segment`, `list_segments`).
 
 ---
 
@@ -706,10 +707,10 @@ Any file-aware agent can read the articles directly. `INDEX.json` enables fast c
 
 - **Local by default.** Ollama and LM Studio process all content on your machine — notes never leave it.
 - **Cloud providers.** If you configure a cloud provider, note content and wiki text are sent to that service. Review their privacy policy before use.
-- **No remote analytics.** Synto does not send usage data anywhere. Local runtime and cost metrics stay in your vault database.
+- **No remote analytics.** Notus does not send usage data anywhere. Local runtime and cost metrics stay in your vault database.
 - **Pack exports.** Exported packs include raw notes, sources, wiki articles, queries, and synthesis by default. Review your vault before sharing a pack.
-- **API keys.** Stored in `~/.config/synto/config.toml` (user-owned, not inside the vault). Never commit that file.
-- **Verbatim MCP tools gate raw text by source license.** The four verbatim-source tools return raw paragraphs only from sources whose license is permissive (`[mcp.source_access]` in `synto.toml`). A vault with no declared licenses is treated as `"all"` — every segment is readable by a connected MCP client — and `synto serve`/`synto doctor` warn you about it. See [Privacy and source access](#privacy-and-source-access).
+- **API keys.** Stored in `~/.config/notus/config.toml` (user-owned, not inside the vault). Never commit that file.
+- **Verbatim MCP tools gate raw text by source license.** The four verbatim-source tools return raw paragraphs only from sources whose license is permissive (`[mcp.source_access]` in `notus.toml`). A vault with no declared licenses is treated as `"all"` — every segment is readable by a connected MCP client — and `notus serve`/`notus doctor` warn you about it. See [Privacy and source access](#privacy-and-source-access).
 
 ---
 
@@ -727,7 +728,7 @@ Any file-aware agent can read the articles directly. `INDEX.json` enables fast c
 **Existing obsidian-llm-wiki-local vaults must be migrated first.** Run `migrate-olw` to convert the vault layout:
 
 ```bash
-synto migrate-olw --vault ~/my-old-vault
+notus migrate-olw --vault ~/my-old-vault
 ```
 
-Copies `wiki.toml` → `synto.toml` and `.olw/` → `.synto/`. Notes and articles are untouched. Old files are preserved — delete them once you've verified everything works.
+Copies `wiki.toml` → `notus.toml` and `.olw/` → `.notus/`. Notes and articles are untouched. Old files are preserved — delete them once you've verified everything works.

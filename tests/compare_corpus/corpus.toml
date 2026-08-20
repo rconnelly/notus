@@ -1,9 +1,9 @@
-# synto comparison corpus v1.0
+# notus comparison corpus v1.0
 # 10 notes covering diverse failure modes; English only.
 
 version = "1.0"
 language = "en"
-description = "Built-in corpus for synto compare — diverse probes across concept extraction, disambiguation, table fidelity, graceful degradation."
+description = "Built-in corpus for notus compare — diverse probes across concept extraction, disambiguation, table fidelity, graceful degradation."
 
 [[note]]
 file = "short_factual.md"

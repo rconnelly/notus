@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
-use synto::config::Config;
-use synto::llm::{MockClient, ModelRouter, RoleEndpoint};
-use synto::pipeline::ingest::ingest_note;
-use synto::state::StateDb;
+use notus::config::Config;
+use notus::llm::{MockClient, ModelRouter, RoleEndpoint};
+use notus::pipeline::ingest::ingest_note;
+use notus::state::StateDb;
 
 fn mock_router(fast_payload: &str, heavy_payload: &str) -> ModelRouter {
     let mk = |payload: &str| RoleEndpoint {
@@ -20,12 +20,12 @@ fn mock_router(fast_payload: &str, heavy_payload: &str) -> ModelRouter {
 fn ingest_note_writes_concepts_and_source_page() {
     let tmp = tempfile::tempdir().unwrap();
     let vault = tmp.path();
-    for d in ["raw", "wiki", "wiki/.drafts", "wiki/sources", ".synto"] {
+    for d in ["raw", "wiki", "wiki/.drafts", "wiki/sources", ".notus"] {
         std::fs::create_dir_all(vault.join(d)).unwrap();
     }
     std::fs::write(
-        vault.join("synto.toml"),
-        synto::config::default_wiki_toml(
+        vault.join("notus.toml"),
+        notus::config::default_wiki_toml(
             "mock",
             "mock",
             "http://127.0.0.1:9",
@@ -68,10 +68,10 @@ fn ingest_note_writes_concepts_and_source_page() {
     assert!(vault.join("wiki/sources/qubit.md").is_file());
 
     let (drafted, failed, _) =
-        synto::pipeline::compile::compile_concepts(&cfg, &router, &db, false, false, None).unwrap();
+        notus::pipeline::compile::compile_concepts(&cfg, &router, &db, false, false, None).unwrap();
     assert!(failed.is_empty(), "{failed:?}");
     assert_eq!(drafted.len(), 1);
-    let published = synto::pipeline::compile::publish_drafts(&cfg, &db, None, "", 0.0).unwrap();
+    let published = notus::pipeline::compile::publish_drafts(&cfg, &db, None, "", 0.0).unwrap();
     assert_eq!(published.len(), 1);
     assert!(vault.join("wiki").join("Qubit.md").is_file() || published[0].exists());
 }
@@ -80,12 +80,12 @@ fn ingest_note_writes_concepts_and_source_page() {
 fn lint_reports_stale_lock_on_fresh_vault() {
     let tmp = tempfile::tempdir().unwrap();
     let vault = tmp.path();
-    for d in ["raw", "wiki", "wiki/.drafts", ".synto"] {
+    for d in ["raw", "wiki", "wiki/.drafts", ".notus"] {
         std::fs::create_dir_all(vault.join(d)).unwrap();
     }
     std::fs::write(
-        vault.join("synto.toml"),
-        synto::config::default_wiki_toml(
+        vault.join("notus.toml"),
+        notus::config::default_wiki_toml(
             "mock",
             "mock",
             "http://127.0.0.1:9",
@@ -97,9 +97,9 @@ fn lint_reports_stale_lock_on_fresh_vault() {
         ),
     )
     .unwrap();
-    std::fs::write(vault.join(".synto/pipeline.lock"), "nope").unwrap();
+    std::fs::write(vault.join(".notus/pipeline.lock"), "nope").unwrap();
     let cfg = Config::from_vault(vault).unwrap();
     let db = Arc::new(StateDb::open(&cfg.state_db_path()).unwrap());
-    let lint = synto::pipeline::lint::run_lint(&cfg, &db, false).unwrap();
+    let lint = notus::pipeline::lint::run_lint(&cfg, &db, false).unwrap();
     assert!(lint.issues.iter().any(|i| i.issue_type == "stale_lock"));
 }

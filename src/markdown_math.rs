@@ -56,7 +56,7 @@ pub fn mask_markdown_regions(content: &str, opts: MaskOptions) -> (String, Vec<(
     let pattern = Regex::new(&parts.join("|")).unwrap();
     let mut replacements = Vec::new();
     let masked = pattern.replace_all(content, |caps: &regex::Captures| {
-        let token = format!("__SYNTO_MARKDOWN_MASK_{}__", replacements.len());
+        let token = format!("__NOTUS_MARKDOWN_MASK_{}__", replacements.len());
         replacements.push((token.clone(), caps.get(0).unwrap().as_str().to_string()));
         token
     });

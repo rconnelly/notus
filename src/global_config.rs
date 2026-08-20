@@ -41,41 +41,59 @@ impl GlobalConfig {
     }
 }
 
-pub fn global_config_path() -> PathBuf {
+fn config_home() -> PathBuf {
     if cfg!(windows) {
         let appdata = std::env::var("APPDATA").unwrap_or_else(|_| {
             directories::BaseDirs::new()
                 .map(|b| b.data_dir().to_string_lossy().into_owned())
                 .unwrap_or_else(|| ".".into())
         });
-        PathBuf::from(appdata).join(APP_NAME).join("config.toml")
+        PathBuf::from(appdata)
     } else {
         let xdg = std::env::var("XDG_CONFIG_HOME").unwrap_or_else(|_| {
             directories::BaseDirs::new()
                 .map(|b| b.home_dir().join(".config").to_string_lossy().into_owned())
                 .unwrap_or_else(|| ".".into())
         });
-        PathBuf::from(xdg).join(APP_NAME).join("config.toml")
+        PathBuf::from(xdg)
     }
 }
 
-pub fn load_global_config() -> Option<GlobalConfig> {
-    let path = global_config_path();
+pub fn global_config_path() -> PathBuf {
+    config_home().join(APP_NAME).join("config.toml")
+}
+
+fn legacy_global_config_path() -> PathBuf {
+    config_home().join("synto").join("config.toml")
+}
+
+fn read_toml_config(path: &Path) -> Option<GlobalConfig> {
     if !path.exists() {
         return None;
     }
-    let text = std::fs::read_to_string(&path).ok()?;
+    let text = std::fs::read_to_string(path).ok()?;
     toml::from_str(&text).ok()
+}
+
+pub fn load_global_config() -> Option<GlobalConfig> {
+    read_toml_config(&global_config_path())
+        .or_else(|| read_toml_config(&legacy_global_config_path()))
 }
 
 pub fn load_global_config_strict() -> Result<Option<GlobalConfig>> {
     let path = global_config_path();
-    if !path.exists() {
-        return Ok(None);
+    if path.exists() {
+        return read_toml_config(&path)
+            .ok_or_else(|| Error::config(format!("unreadable global config: {}", path.display())))
+            .map(Some);
     }
-    load_global_config()
-        .ok_or_else(|| Error::config(format!("unreadable global config: {}", path.display())))
-        .map(Some)
+    let legacy = legacy_global_config_path();
+    if legacy.exists() {
+        return read_toml_config(&legacy)
+            .ok_or_else(|| Error::config(format!("unreadable global config: {}", legacy.display())))
+            .map(Some);
+    }
+    Ok(None)
 }
 
 pub fn save_global_config(cfg: &GlobalConfig) -> Result<()> {
@@ -88,6 +106,10 @@ fn known_vaults_path() -> PathBuf {
     global_config_path().with_file_name("vaults.toml")
 }
 
+fn legacy_known_vaults_path() -> PathBuf {
+    legacy_global_config_path().with_file_name("vaults.toml")
+}
+
 pub fn vault_key(vault: &Path) -> String {
     let resolved = std::fs::canonicalize(vault).unwrap_or_else(|_| vault.to_path_buf());
     if cfg!(windows) {
@@ -97,12 +119,11 @@ pub fn vault_key(vault: &Path) -> String {
     }
 }
 
-fn read_known_vaults() -> (Vec<String>, bool) {
-    let path = known_vaults_path();
+fn parse_vaults_file(path: &Path) -> (Vec<String>, bool) {
     if !path.exists() {
         return (Vec::new(), false);
     }
-    match std::fs::read_to_string(&path) {
+    match std::fs::read_to_string(path) {
         Ok(text) => match text.parse::<toml::Value>() {
             Ok(val) => {
                 let vaults = val.get("vaults").and_then(|v| v.as_array());
@@ -120,6 +141,14 @@ fn read_known_vaults() -> (Vec<String>, bool) {
         },
         Err(_) => (Vec::new(), true),
     }
+}
+
+fn read_known_vaults() -> (Vec<String>, bool) {
+    let primary = known_vaults_path();
+    if primary.exists() {
+        return parse_vaults_file(&primary);
+    }
+    parse_vaults_file(&legacy_known_vaults_path())
 }
 
 pub fn load_known_vaults() -> Vec<String> {
@@ -150,7 +179,11 @@ pub fn register_known_vault(vault: &Path) {
         return;
     }
     if malformed {
-        let reg = known_vaults_path();
+        let reg = if known_vaults_path().exists() {
+            known_vaults_path()
+        } else {
+            legacy_known_vaults_path()
+        };
         let corrupt = reg.with_file_name(format!(
             "{}.corrupt",
             reg.file_name().unwrap().to_string_lossy()

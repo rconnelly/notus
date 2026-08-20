@@ -208,12 +208,12 @@ fi
 # ── Install ───────────────────────────────────────────────────────────────────
 header "Install"
 
-info "Building synto from $REPO_DIR"
+info "Building notus from $REPO_DIR"
 cargo build --manifest-path "$REPO_DIR/Cargo.toml" --quiet
 pass "cargo build"
-SYNTO_BIN="${SYNTO_BIN:-$REPO_DIR/target/debug/synto}"
-OLW="$SYNTO_BIN"
-export SYNTO_VAULT="$VAULT_DIR"
+NOTUS_BIN="${NOTUS_BIN:-$REPO_DIR/target/debug/notus}"
+OLW="$NOTUS_BIN"
+export NOTUS_VAULT="$VAULT_DIR"
 
 # ── Structured output resilience (PR #32 + _make_template recursion) ──────────
 # Pure-Python regression guard — runs without any LLM. Verifies:
@@ -227,7 +227,7 @@ info "covered by cargo test (request_structured_parses_mock_analysis); skipping 
 pass "string-concept list coerced end-to-end (PR #32 + template fix)"
 
 # ── Init ──────────────────────────────────────────────────────────────────────
-header "synto init"
+header "notus init"
 
 $OLW init "$VAULT_DIR" 2>&1 | grep -v "^$" || true
 
@@ -235,8 +235,8 @@ soft_check "raw/ created"           "test -d $VAULT_DIR/raw"
 soft_check "wiki/ created"          "test -d $VAULT_DIR/wiki"
 soft_check "wiki/.drafts/ created"  "test -d $VAULT_DIR/wiki/.drafts"
 soft_check "wiki/sources/ created"  "test -d $VAULT_DIR/wiki/sources"
-soft_check ".synto/ created"          "test -d $VAULT_DIR/.synto"
-soft_check "synto.toml created"      "test -f $VAULT_DIR/synto.toml"
+soft_check ".notus/ created"          "test -d $VAULT_DIR/.notus"
+soft_check "notus.toml created"      "test -f $VAULT_DIR/notus.toml"
 soft_check "git repo initialised"   "test -d $VAULT_DIR/.git"
 # #27: init must write wiki/index.md with lowercase name.
 # Can't use `test -f INDEX.md` on macOS APFS (case-insensitive) — it matches index.md.
@@ -244,9 +244,9 @@ soft_check "git repo initialised"   "test -d $VAULT_DIR/.git"
 _ACTUAL_INDEX=$(ls "$VAULT_DIR/wiki/" | { grep -i '^index\.md$' || true; } | head -1)
 soft_check "wiki index file is lowercase index.md (issue #27)" "test '$_ACTUAL_INDEX' = 'index.md'"
 
-# Write provider-appropriate synto.toml
+# Write provider-appropriate notus.toml
 if [[ "$PROVIDER" == "ollama" ]]; then
-    cat > "$VAULT_DIR/synto.toml" <<TOML
+    cat > "$VAULT_DIR/notus.toml" <<TOML
 [models]
 fast = "$FAST_MODEL"
 heavy = "$HEAVY_MODEL"
@@ -270,7 +270,7 @@ chunk_overlap = 50
 similarity_threshold = 0.7
 TOML
 else
-    cat > "$VAULT_DIR/synto.toml" <<TOML
+    cat > "$VAULT_DIR/notus.toml" <<TOML
 [models]
 fast = "$FAST_MODEL"
 heavy = "$HEAVY_MODEL"
@@ -294,10 +294,10 @@ chunk_overlap = 50
 similarity_threshold = 0.7
 TOML
 fi
-pass "synto.toml configured (provider=$PROVIDER fast=$FAST_MODEL heavy=$HEAVY_MODEL)"
+pass "notus.toml configured (provider=$PROVIDER fast=$FAST_MODEL heavy=$HEAVY_MODEL)"
 
 # ── Doctor ───────────────────────────────────────────────────────────────────
-header "synto doctor"
+header "notus doctor"
 $OLW doctor 2>&1 || true
 # Doctor exit code not checked (models may not be present before pull)
 
@@ -361,12 +361,12 @@ RAW_HASH_1=$(shasum "$VAULT_DIR/raw/quantum-computing.md" | awk '{print $1}')
 RAW_HASH_2=$(shasum "$VAULT_DIR/raw/machine-learning-basics.md" | awk '{print $1}')
 
 # ── Ingest ────────────────────────────────────────────────────────────────────
-header "synto ingest --all"
+header "notus ingest --all"
 info "Calling $PROVIDER ($FAST_MODEL) — may take 30-120s..."
 
 $OLW ingest --all 2>&1
 
-check "state.db created" "test -f $VAULT_DIR/.synto/state.db"
+check "state.db created" "test -f $VAULT_DIR/.notus/state.db"
 
 # Raw files must remain unchanged (immutability contract)
 soft_check "raw note 1 unchanged after ingest" \
@@ -420,7 +420,7 @@ soft_check "wiki/log.md created"   "test -f $VAULT_DIR/wiki/log.md"
 soft_check "index.md has wikilinks" "grep -q '\[\[' $VAULT_DIR/wiki/index.md"
 
 # ── Status after ingest ───────────────────────────────────────────────────────
-header "synto status (after ingest)"
+header "notus status (after ingest)"
 STATUS_OUT=$($OLW status 2>&1)
 echo "$STATUS_OUT"
 
@@ -439,7 +439,7 @@ fi
 # dropped concept_aliases table to concept_labels (role='alias') in schema v20.
 ALIAS_COUNT=$(python3 - <<PYEOF
 import sqlite3
-conn = sqlite3.connect("$VAULT_DIR/.synto/state.db")
+conn = sqlite3.connect("$VAULT_DIR/.notus/state.db")
 try:
     n = conn.execute(
         "SELECT COUNT(*) FROM concept_labels WHERE role='alias'"
@@ -462,7 +462,7 @@ info "Aliases stored in DB: $ALIAS_COUNT"
 # gets zero non-trivial aliases on the seed corpus, something's off.
 NON_TRIVIAL_ALIASES=$(python3 - <<PYEOF
 import sqlite3
-conn = sqlite3.connect("$VAULT_DIR/.synto/state.db")
+conn = sqlite3.connect("$VAULT_DIR/.notus/state.db")
 try:
     # An alias label is non-trivial when it differs from its entity's preferred
     # label (not just the lowercase fallback of the canonical name).
@@ -502,7 +502,7 @@ $OLW ingest "$VAULT_DIR/raw/note-francais.md" 2>&1
 
 LANG_IN_DB=$(python3 - <<PYEOF
 import sqlite3
-conn = sqlite3.connect("$VAULT_DIR/.synto/state.db")
+conn = sqlite3.connect("$VAULT_DIR/.notus/state.db")
 row = conn.execute("SELECT language FROM raw_notes WHERE path='raw/note-francais.md'").fetchone()
 print(row[0] if row else "")
 conn.close()
@@ -512,7 +512,7 @@ soft_check "language column populated after ingest" "test -n \"$LANG_IN_DB\""
 info "Detected language: '$LANG_IN_DB'"
 
 # ── Compile (concept-driven) ──────────────────────────────────────────────────
-header "synto compile (concept-driven)"
+header "notus compile (concept-driven)"
 info "Calling $PROVIDER ($HEAVY_MODEL) — may take 2-5 min..."
 
 $OLW compile 2>&1
@@ -609,12 +609,12 @@ PYEOF
 fi
 
 # ── Status after compile ──────────────────────────────────────────────────────
-header "synto status (after compile)"
+header "notus status (after compile)"
 $OLW status 2>&1
 
 # ── Verify ────────────────────────────────────────────────────────────────────
 VERIFY_DRAFT_COUNT_BEFORE=$(find "$VAULT_DIR/wiki/.drafts" -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
-header "synto verify --all"
+header "notus verify --all"
 _VERIFY_RC=0; VERIFY_OUT=$($OLW verify --all 2>&1) || _VERIFY_RC=$?
 check "verify exits 0" "test $_VERIFY_RC -eq 0"
 echo "$VERIFY_OUT"
@@ -627,7 +627,7 @@ check "verify keeps drafts in wiki/.drafts/" \
 check "verify marks all drafts as verified" \
     "test '$VERIFIED_DRAFT_COUNT' -eq '$VERIFY_DRAFT_COUNT_AFTER'"
 
-header "synto status (after verify)"
+header "notus status (after verify)"
 _SAV_RC=0; STATUS_AFTER_VERIFY=$($OLW status 2>&1) || _SAV_RC=$?
 check "status after verify exits 0" "test $_SAV_RC -eq 0"
 echo "$STATUS_AFTER_VERIFY"
@@ -635,13 +635,13 @@ soft_check "status shows verified pending" "echo \"$STATUS_AFTER_VERIFY\" | grep
 
 # ── Approve ───────────────────────────────────────────────────────────────────
 # approve publishes by default; verify is the explicit in-place review step.
-header "synto approve --all"
+header "notus approve --all"
 $OLW approve --all 2>&1
 
 WIKI_COUNT=$(find "$VAULT_DIR/wiki" -name "*.md" -not -path "*/.drafts/*" 2>/dev/null | wc -l | tr -d ' ')
 check "articles published to wiki/"    "test '$WIKI_COUNT' -ge 1"
 check "drafts directory now empty"     "test \$(find $VAULT_DIR/wiki/.drafts -name '*.md' 2>/dev/null | wc -l) -eq 0"
-soft_check "git commit created"             "git -C $VAULT_DIR log --oneline | grep -q '\[synto\]'"
+soft_check "git commit created"             "git -C $VAULT_DIR log --oneline | grep -q '\[notus\]'"
 
 # Bulk YAML validity + tag check on all published wiki pages
 # Use -print0 / read -d '' to handle spaces and special chars in filenames
@@ -781,7 +781,7 @@ header "Git history"
 git -C "$VAULT_DIR" log --oneline
 
 # ── Undo ─────────────────────────────────────────────────────────────────────
-header "synto undo"
+header "notus undo"
 
 UNDO_VAULT_DIR="$(mktemp -d)"
 rsync -a "$VAULT_DIR/" "$UNDO_VAULT_DIR/"
@@ -857,7 +857,7 @@ rm -f "$_TMP"
 rm -f "$VAULT_DIR/raw/quantum-computing-copy.md"
 
 # ── Query (Stage 3) ───────────────────────────────────────────────────────────
-header "synto query (Stage 3)"
+header "notus query (Stage 3)"
 PUBLISHED_ARTICLE_COUNT=$(find "$VAULT_DIR/wiki" -maxdepth 1 -name '*.md' \
     ! -name 'index.md' ! -name 'log.md' 2>/dev/null | wc -l | tr -d ' ')
 soft_check "query stage has published articles to search" "test '$PUBLISHED_ARTICLE_COUNT' -ge 1"
@@ -941,8 +941,8 @@ if [[ -n "$BRIDGE_CONCEPT" ]]; then
     BRIDGE_ALIAS="wibbletron"
     uv run --project "$REPO_DIR" python - <<PYEOF
 from pathlib import Path
-from synto.state import StateDB
-db = StateDB(Path("$VAULT_DIR/.synto/state.db"))
+from notus.state import StateDB
+db = StateDB(Path("$VAULT_DIR/.notus/state.db"))
 db.upsert_aliases("$BRIDGE_CONCEPT", ["$BRIDGE_ALIAS"])
 db.close()
 PYEOF
@@ -983,7 +983,7 @@ PYEOF
 fi
 
 # ── Report (Stage 3) ──────────────────────────────────────────────────────────
-header "synto report (Stage 3)"
+header "notus report (Stage 3)"
 _STATS_RC=0
 STATS_OUT=$($OLW report 2>&1) || _STATS_RC=$?
 echo "$STATS_OUT"
@@ -1017,7 +1017,7 @@ PYEOF"
 rm -f "$_TMP"
 
 # ── Eval (Stage 3) ────────────────────────────────────────────────────────────
-header "synto eval (Stage 3)"
+header "notus eval (Stage 3)"
 _EVAL_RC=0
 EVAL_OUT=$($OLW eval 2>&1) || _EVAL_RC=$?
 echo "$EVAL_OUT"
@@ -1049,8 +1049,8 @@ PYEOF"
 rm -f "$_TMP"
 
 # ── Pack export (Phase 1A) ───────────────────────────────────────────────────
-header "synto pack export"
-PACK_OUT="$VAULT_DIR/.synto/exports/agents-smoke"
+header "notus pack export"
+PACK_OUT="$VAULT_DIR/.notus/exports/agents-smoke"
 rm -rf "$PACK_OUT"
 _PACK_RC=0
 PACK_OUT_TEXT=$($OLW pack export --target agents --out "$PACK_OUT" 2>&1) || _PACK_RC=$?
@@ -1096,10 +1096,10 @@ soft_check "pack export omits graph/graph.json without relations" \
     "test ! -e '$PACK_OUT/graph/graph.json'"
 
 # ── report clear (Phase 1A) ──────────────────────────────────────────────────
-header "synto report clear"
+header "notus report clear"
 METRIC_ROWS_BEFORE=$(python3 - <<PYEOF
 import sqlite3
-conn = sqlite3.connect("$VAULT_DIR/.synto/state.db")
+conn = sqlite3.connect("$VAULT_DIR/.notus/state.db")
 events = conn.execute("SELECT COUNT(*) FROM metric_events").fetchone()[0]
 rollups = conn.execute("SELECT COUNT(*) FROM metric_daily_rollups").fetchone()[0]
 print(events + rollups)
@@ -1114,7 +1114,7 @@ check "report clear exits 0" "test $_TC_RC -eq 0"
 soft_check "report clear reports deleted rows" "echo \"$METRICS_CLEAR_OUT\" | grep -q 'rows deleted'"
 METRIC_ROWS_AFTER=$(python3 - <<PYEOF
 import sqlite3
-conn = sqlite3.connect("$VAULT_DIR/.synto/state.db")
+conn = sqlite3.connect("$VAULT_DIR/.notus/state.db")
 events = conn.execute("SELECT COUNT(*) FROM metric_events").fetchone()[0]
 rollups = conn.execute("SELECT COUNT(*) FROM metric_daily_rollups").fetchone()[0]
 print(events + rollups)
@@ -1124,7 +1124,7 @@ PYEOF
 soft_check "report clear rows cleared" "test '$METRIC_ROWS_AFTER' -eq 0"
 
 # ── serve help (Phase 1A) ────────────────────────────────────────────────────
-header "synto serve --help"
+header "notus serve --help"
 _SERVE_HELP_RC=0
 SERVE_HELP_OUT=$($OLW serve --help 2>&1) || _SERVE_HELP_RC=$?
 echo "$SERVE_HELP_OUT"
@@ -1137,7 +1137,7 @@ soft_check "serve help describes exposed tools" \
 rm -f "$_SERVE_HELP_TMP"
 
 # ── Maintain --dry-run (Stage 3) ──────────────────────────────────────────────
-header "synto maintain --dry-run (Stage 3)"
+header "notus maintain --dry-run (Stage 3)"
 LINT_OUT=$($OLW maintain --dry-run 2>&1); _LINT_RC=$?
 echo "$LINT_OUT"
 check "maintain --dry-run exits 0" "test $_LINT_RC -eq 0"
@@ -1152,11 +1152,11 @@ $OLW maintain --fix > /dev/null 2>&1; _LINTFIX_RC=$?
 check "maintain --fix exits 0" "test $_LINTFIX_RC -eq 0"
 
 # ── Retry failed (Stage 4) ────────────────────────────────────────────────────
-header "synto compile --retry-failed (Stage 4)"
+header "notus compile --retry-failed (Stage 4)"
 # Inject a fake failed record directly, then verify --retry-failed notices it
 python3 - <<PYEOF
 import sqlite3, pathlib
-db_path = "$VAULT_DIR/.synto/state.db"
+db_path = "$VAULT_DIR/.notus/state.db"
 conn = sqlite3.connect(db_path)
 # Only insert if not already present
 conn.execute("""
@@ -1183,9 +1183,9 @@ soft_check "retry-failed reports failed notes" \
     "grep -qiE 'retry|failed|not found|re-ingest' \"$_RETRY_TMP\""
 rm -f "$_RETRY_TMP"
 
-# ── synto run (orchestrator) ───────────────────────────────────────────────────
-header "synto run (pipeline orchestrator)"
-info "Adding 4th note to drive synto run..."
+# ── notus run (orchestrator) ───────────────────────────────────────────────────
+header "notus run (pipeline orchestrator)"
+info "Adding 4th note to drive notus run..."
 
 cat > "$VAULT_DIR/raw/reinforcement-learning.md" <<'EOF'
 ---
@@ -1206,21 +1206,21 @@ EOF
 _RUN_RC=0
 RUN_OUT=$($OLW run 2>&1) || _RUN_RC=$?
 echo "$RUN_OUT"
-check "synto run exits 0" "test $_RUN_RC -eq 0"
+check "notus run exits 0" "test $_RUN_RC -eq 0"
 _TMP=$(mktemp); echo "$RUN_OUT" > "$_TMP"
-soft_check "synto run completes without fatal error" \
+soft_check "notus run completes without fatal error" \
     "! grep -qiE 'traceback|exception|fatal' \"$_TMP\""
-soft_check "synto run reports ingested or compiled" \
+soft_check "notus run reports ingested or compiled" \
     "grep -qiE 'ingest|compile|draft|publish|rounds' \"$_TMP\""
 rm -f "$_TMP"
 
 DRAFTS_BEFORE=$(find "$VAULT_DIR/wiki/.drafts" -name '*.md' 2>/dev/null | wc -l | tr -d ' ')
 _RUNDRY_RC=0
 RUN_DRYRUN_OUT=$($OLW run --dry-run 2>&1) || _RUNDRY_RC=$?
-check "synto run --dry-run exits 0" "test $_RUNDRY_RC -eq 0"
+check "notus run --dry-run exits 0" "test $_RUNDRY_RC -eq 0"
 DRAFTS_AFTER=$(find "$VAULT_DIR/wiki/.drafts" -name '*.md' 2>/dev/null | wc -l | tr -d ' ')
 _TMP=$(mktemp); echo "$RUN_DRYRUN_OUT" > "$_TMP"
-soft_check "synto run --dry-run makes no LLM calls (no new drafts)" \
+soft_check "notus run --dry-run makes no LLM calls (no new drafts)" \
     "test '$DRAFTS_AFTER' -eq '$DRAFTS_BEFORE'"
 rm -f "$_TMP"
 
@@ -1238,7 +1238,7 @@ $OLW approve --all 2>&1 || true   # clear drafts first
 # low-confidence, single-source, all-low-quality.
 ANNOTATION_CONCEPT=$(python3 - <<PYEOF
 import sqlite3
-db_path = "$VAULT_DIR/.synto/state.db"
+db_path = "$VAULT_DIR/.notus/state.db"
 conn = sqlite3.connect(db_path)
 row = conn.execute(
     "SELECT name, MIN(source_path) FROM concepts "
@@ -1265,7 +1265,7 @@ $OLW compile --force --concept "$ANNOTATION_CONCEPT" 2>&1 || true
 # one source at quality='low', _compute_confidence returns 0.25, which is
 # below _ANNOTATION_CONFIDENCE_THRESHOLD=0.4 — the low-confidence,
 # single-source, and all-low-quality annotations must all fire.
-DRAFTS_WITH_ANNOTATION=$({ grep -rl 'synto-auto' "$VAULT_DIR/wiki/.drafts/" 2>/dev/null || true; } \
+DRAFTS_WITH_ANNOTATION=$({ grep -rl 'notus-auto' "$VAULT_DIR/wiki/.drafts/" 2>/dev/null || true; } \
     | wc -l | tr -d ' ')
 info "Annotated drafts before approve: $DRAFTS_WITH_ANNOTATION"
 check "compile produced at least one annotated draft" \
@@ -1273,13 +1273,13 @@ check "compile produced at least one annotated draft" \
 
 # Per-annotation-kind checks: catches a silent break in any single branch
 # of _build_draft_annotations (compile.py).
-ANNOTATED_DRAFT=$({ grep -rl 'synto-auto' "$VAULT_DIR/wiki/.drafts/" 2>/dev/null \
+ANNOTATED_DRAFT=$({ grep -rl 'notus-auto' "$VAULT_DIR/wiki/.drafts/" 2>/dev/null \
     | head -1; } || true)
 if [[ -n "$ANNOTATED_DRAFT" ]]; then
     REJECTION_CONCEPT=$(grep '^title:' "$ANNOTATED_DRAFT" | head -1 | sed 's/title: *//')
-    check "low-confidence annotation present"  "grep -q 'synto-auto: low-confidence' \"$ANNOTATED_DRAFT\""
-    check "single-source annotation present"   "grep -q 'synto-auto: single-source' \"$ANNOTATED_DRAFT\""
-    check "low-quality annotation present"     "grep -q 'synto-auto: all sources low-quality' \"$ANNOTATED_DRAFT\""
+    check "low-confidence annotation present"  "grep -q 'notus-auto: low-confidence' \"$ANNOTATED_DRAFT\""
+    check "single-source annotation present"   "grep -q 'notus-auto: single-source' \"$ANNOTATED_DRAFT\""
+    check "low-quality annotation present"     "grep -q 'notus-auto: all sources low-quality' \"$ANNOTATED_DRAFT\""
 fi
 
 if [[ -z "${REJECTION_CONCEPT:-}" ]]; then
@@ -1292,7 +1292,7 @@ fi
 # _strip_draft_annotations removes both — the check must be at least as
 # strict as the function it validates.
 $OLW approve --all 2>&1 || true
-PUBLISHED_WITH_ANNOTATION=$({ grep -rlE '(synto|olw)-auto' "$VAULT_DIR/wiki/" \
+PUBLISHED_WITH_ANNOTATION=$({ grep -rlE '(notus|olw)-auto' "$VAULT_DIR/wiki/" \
     --include='*.md' --exclude-dir='.drafts' --exclude-dir='sources' 2>/dev/null || true; } \
     | wc -l | tr -d ' ')
 check "no annotations leak into published articles" \
@@ -1337,13 +1337,13 @@ check "compile after rejection exits 0" "test $_CAR_RC -eq 0"
 soft_check "recompile after rejection completes" \
     "! echo \"$COMPILE_OUT2\" | grep -qiE 'traceback|fatal'"
 
-# ── synto unblock ──────────────────────────────────────────────────────────────
-header "synto unblock"
+# ── notus unblock ──────────────────────────────────────────────────────────────
+header "notus unblock"
 info "Simulating 5-rejection block..."
 
 python3 - <<PYEOF
 import sqlite3
-db_path = "$VAULT_DIR/.synto/state.db"
+db_path = "$VAULT_DIR/.notus/state.db"
 conn = sqlite3.connect(db_path)
 conn.execute("""
     INSERT OR IGNORE INTO blocked_concepts (concept, blocked_at)
@@ -1375,8 +1375,8 @@ check "status (after unblock) exits 0" "test $_SAU_RC -eq 0"
 soft_check "concept no longer blocked after unblock" \
     "! echo \"\$STATUS_AFTER_UNBLOCK\" | grep -qiE 'Fake Blocked'"
 
-# ── synto maintain ─────────────────────────────────────────────────────────────
-header "synto maintain"
+# ── notus maintain ─────────────────────────────────────────────────────────────
+header "notus maintain"
 _M_RC=0
 MAINTAIN_OUT=$($OLW maintain 2>&1) || _M_RC=$?
 echo "$MAINTAIN_OUT"
@@ -1396,8 +1396,8 @@ soft_check "maintain --dry-run completes" \
     "! grep -qiE 'traceback|fatal' \"$_TMP\""
 rm -f "$_TMP"
 
-# ── synto maintain --fix (stubs) ────────────────────────────────────────────────
-header "synto maintain --fix (stub creation)"
+# ── notus maintain --fix (stubs) ────────────────────────────────────────────────
+header "notus maintain --fix (stub creation)"
 # Inject a broken wikilink into a published article so maintain can create a stub
 FIRST_WIKI=$(find "$VAULT_DIR/wiki" -maxdepth 1 -name "*.md" \
     ! -name "index.md" ! -name "log.md" 2>/dev/null | head -1)
@@ -1415,7 +1415,7 @@ if [[ -n "$FIRST_WIKI" ]]; then
     STUB_DRAFT_COUNT=$(find "$VAULT_DIR/wiki/.drafts" -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
     STUB_DB_COUNT=$(python3 -c "
 import sqlite3
-conn = sqlite3.connect('$VAULT_DIR/.synto/state.db')
+conn = sqlite3.connect('$VAULT_DIR/.notus/state.db')
 try:
     n = conn.execute('SELECT COUNT(*) FROM stubs').fetchone()[0]
     print(n)
@@ -1448,8 +1448,8 @@ else
     pass "stub creation test skipped (no wiki article available)"
 fi
 
-# ── synto maintain --fix (alias-based link repair, issue #29) ──────────────────
-header "synto maintain --fix (alias link repair, issue #29)"
+# ── notus maintain --fix (alias-based link repair, issue #29) ──────────────────
+header "notus maintain --fix (alias link repair, issue #29)"
 # Deterministic setup: inject a known concept + alias + published article directly,
 # so the test doesn't depend on what the LLM happened to produce earlier in the run.
 REPAIR_WIKI=$(find "$VAULT_DIR/wiki" -maxdepth 1 -name "*.md" \
@@ -1459,8 +1459,8 @@ if [[ -n "$REPAIR_WIKI" ]]; then
     # 1. Register a synthetic concept and unambiguous alias in the DB
     uv run --project "$REPO_DIR" python - <<PYEOF
 from pathlib import Path
-from synto.state import StateDB
-db = StateDB(Path("$VAULT_DIR/.synto/state.db"))
+from notus.state import StateDB
+db = StateDB(Path("$VAULT_DIR/.notus/state.db"))
 # Register the synthetic concept (mints an entity_id) and its unambiguous alias
 # through the app API — concepts.entity_id is NOT NULL and aliases live in
 # concept_labels since schema v20/v22.
@@ -1508,10 +1508,10 @@ MDEOF
     rm -f "$_STC_ARTICLE"
     uv run --project "$REPO_DIR" python - <<PYEOF
 from pathlib import Path
-from synto.state import StateDB
+from notus.state import StateDB
 # Best-effort teardown of the synthetic concept and its labels (entity_id-keyed
 # tables since v20/v22). Resolve the entity, then drop its rows.
-db = StateDB(Path("$VAULT_DIR/.synto/state.db"))
+db = StateDB(Path("$VAULT_DIR/.notus/state.db"))
 try:
     eid = db.entity_id_for_name("Smoke Test Concept")
     if eid is not None:
@@ -1547,11 +1547,11 @@ soft_check "maintain --fix is idempotent (no changes on second run)" \
 # Legacy two-step LLM path is shipped but never exercised by smoke. Run one
 # minimal invocation to guard against complete-bitrot. Don't assert on quality —
 # small-model legacy output is noisy — just "ran, produced a draft".
-header "synto compile --legacy"
+header "notus compile --legacy"
 # Force one note back to 'ingested' so legacy has something to compile
 python3 - <<PYEOF
 import sqlite3
-conn = sqlite3.connect("$VAULT_DIR/.synto/state.db")
+conn = sqlite3.connect("$VAULT_DIR/.notus/state.db")
 conn.execute(
     "UPDATE raw_notes SET status='ingested' WHERE path='raw/machine-learning-basics.md'"
 )
@@ -1566,19 +1566,19 @@ echo "$LEGACY_OUT"
 # Exit-0 is the bit-rot guard — draft production is model-dependent, not asserted.
 check "compile --legacy exits 0" "test $_LEGACY_RC -eq 0"
 
-# ── synto support ─────────────────────────────────────────────────────────────
-header "synto support"
+# ── notus support ─────────────────────────────────────────────────────────────
+header "notus support"
 _SUP_RC=0
 SUP_OUT=$($OLW support 2>&1) || _SUP_RC=$?
 echo "$SUP_OUT"
-check "synto support exits 0" "test $_SUP_RC -eq 0"
+check "notus support exits 0" "test $_SUP_RC -eq 0"
 _TMP=$(mktemp); echo "$SUP_OUT" > "$_TMP"
-soft_check "synto support output contains issues URL keyword" \
+soft_check "notus support output contains issues URL keyword" \
     "grep -qiE 'github|issues' \"$_TMP\""
 rm -f "$_TMP"
 
-# ── synto doctor (exit code, post-init) ───────────────────────────────────────
-header "synto doctor (post-init exit code)"
+# ── notus doctor (exit code, post-init) ───────────────────────────────────────
+header "notus doctor (post-init exit code)"
 _DOC_RC=0
 DOC_OUT=$($OLW doctor 2>&1) || _DOC_RC=$?
 echo "$DOC_OUT"
@@ -1588,8 +1588,8 @@ soft_check "doctor output contains Vault structure section" \
     "grep -q 'Vault structure' \"$_TMP\""
 rm -f "$_TMP"
 
-# ── synto doctor --backlog (MCP demand-vs-coverage, empty-window path) ─────────
-header "synto doctor --backlog"
+# ── notus doctor --backlog (MCP demand-vs-coverage, empty-window path) ─────────
+header "notus doctor --backlog"
 _BL_RC=0
 BL_OUT=$($OLW doctor --backlog --since=7d 2>&1) || _BL_RC=$?
 echo "$BL_OUT"
@@ -1602,8 +1602,8 @@ soft_check "doctor --backlog reports no MCP activity on a quiet vault" \
     "grep -q 'no MCP activity' \"$_BL_TMP\""
 rm -f "$_BL_TMP"
 
-# ── synto config inline-source-citations ──────────────────────────────────────
-header "synto config inline-source-citations"
+# ── notus config inline-source-citations ──────────────────────────────────────
+header "notus config inline-source-citations"
 _CISC_RC=0
 CISC_STATUS_OUT=$($OLW config inline-source-citations status 2>&1) || _CISC_RC=$?
 echo "$CISC_STATUS_OUT"
@@ -1613,8 +1613,8 @@ _CISC_ON_RC=0
 CISC_ON_OUT=$($OLW config inline-source-citations on 2>&1) || _CISC_ON_RC=$?
 echo "$CISC_ON_OUT"
 check "config inline-source-citations on exits 0" "test $_CISC_ON_RC -eq 0"
-soft_check "config inline-source-citations on writes true to synto.toml" \
-    "grep -q 'inline_source_citations = true' '$VAULT_DIR/synto.toml'"
+soft_check "config inline-source-citations on writes true to notus.toml" \
+    "grep -q 'inline_source_citations = true' '$VAULT_DIR/notus.toml'"
 
 _CISC_STATUS2_RC=0
 CISC_STATUS2_OUT=$($OLW config inline-source-citations status 2>&1) || _CISC_STATUS2_RC=$?
@@ -1627,8 +1627,8 @@ _CISC_OFF_RC=0
 CISC_OFF_OUT=$($OLW config inline-source-citations off 2>&1) || _CISC_OFF_RC=$?
 echo "$CISC_OFF_OUT"
 check "config inline-source-citations off exits 0" "test $_CISC_OFF_RC -eq 0"
-soft_check "config inline-source-citations off writes false to synto.toml" \
-    "grep -q 'inline_source_citations = false' '$VAULT_DIR/synto.toml'"
+soft_check "config inline-source-citations off writes false to notus.toml" \
+    "grep -q 'inline_source_citations = false' '$VAULT_DIR/notus.toml'"
 
 _CISC_STATUS3_RC=0
 CISC_STATUS3_OUT=$($OLW config inline-source-citations status 2>&1) || _CISC_STATUS3_RC=$?
@@ -1637,27 +1637,27 @@ soft_check "config inline-source-citations status after off prints disabled" \
     "grep -qiE 'disabled|off|false' \"$_TMP\""
 rm -f "$_TMP"
 
-# ── synto ingest --force ──────────────────────────────────────────────────────
-header "synto ingest --force"
+# ── notus ingest --force ──────────────────────────────────────────────────────
+header "notus ingest --force"
 _IF_RC=0
 INGEST_FORCE_OUT=$($OLW ingest --force "$VAULT_DIR/raw/quantum-computing.md" 2>&1) || _IF_RC=$?
 echo "$INGEST_FORCE_OUT"
 check "ingest --force exits 0" "test $_IF_RC -eq 0"
 _IF_STATUS=$(python3 -c "
 import sqlite3
-conn = sqlite3.connect('$VAULT_DIR/.synto/state.db')
+conn = sqlite3.connect('$VAULT_DIR/.notus/state.db')
 row = conn.execute(\"SELECT status FROM raw_notes WHERE path='raw/quantum-computing.md'\").fetchone()
 print(row[0] if row else 'missing')
 conn.close()
 ")
 soft_check "ingest --force note still has status ingested" "test '$_IF_STATUS' = 'ingested'"
 
-# ── synto compile --auto-approve ──────────────────────────────────────────────
-header "synto compile --auto-approve"
+# ── notus compile --auto-approve ──────────────────────────────────────────────
+header "notus compile --auto-approve"
 # Force one note back to needing compile (both raw_notes and concept_compile_state)
 python3 - <<PYEOF
 import sqlite3
-conn = sqlite3.connect("$VAULT_DIR/.synto/state.db")
+conn = sqlite3.connect("$VAULT_DIR/.notus/state.db")
 conn.execute("UPDATE raw_notes SET status='ingested' WHERE path='raw/machine-learning-basics.md'")
 conn.execute("UPDATE concept_compile_state SET status='pending', error=NULL, compiled_at=NULL, updated_at=datetime('now') WHERE source_path='raw/machine-learning-basics.md'")
 conn.commit()
@@ -1678,12 +1678,12 @@ soft_check "compile --auto-approve published at least one article" \
     "grep -qi 'published' '$_CA_OUT_TMP'"
 rm -f "$_CA_OUT_TMP"
 
-# ── synto compile --force ─────────────────────────────────────────────────────
-header "synto compile --force"
+# ── notus compile --force ─────────────────────────────────────────────────────
+header "notus compile --force"
 # Reset note to needing compile (both raw_notes and concept_compile_state)
 python3 - <<PYEOF
 import sqlite3
-conn = sqlite3.connect("$VAULT_DIR/.synto/state.db")
+conn = sqlite3.connect("$VAULT_DIR/.notus/state.db")
 conn.execute("UPDATE raw_notes SET status='ingested' WHERE path='raw/quantum-computing.md'")
 conn.execute("UPDATE concept_compile_state SET status='pending', error=NULL, compiled_at=NULL, updated_at=datetime('now') WHERE source_path='raw/quantum-computing.md'")
 conn.commit()
@@ -1708,14 +1708,14 @@ else
     pass "compile --force skipped (no published article to edit)"
 fi
 
-# ── synto approve (individual + --min-confidence) ─────────────────────────────
-header "synto approve (individual draft + --min-confidence)"
+# ── notus approve (individual + --min-confidence) ─────────────────────────────
+header "notus approve (individual draft + --min-confidence)"
 # Use compile --force since concepts are already compiled at this point
 $OLW approve --all 2>&1 >/dev/null || true
 # Reset note to needing compile (both raw_notes and concept_compile_state)
 python3 - <<PYEOF
 import sqlite3
-conn = sqlite3.connect("$VAULT_DIR/.synto/state.db")
+conn = sqlite3.connect("$VAULT_DIR/.notus/state.db")
 conn.execute("UPDATE raw_notes SET status='ingested' WHERE path='raw/quantum-computing.md'")
 conn.execute("UPDATE concept_compile_state SET status='pending', error=NULL, compiled_at=NULL, updated_at=datetime('now') WHERE source_path='raw/quantum-computing.md'")
 conn.commit()
@@ -1746,14 +1746,14 @@ else
     pass "approve individual test skipped (no drafts produced)"
 fi
 
-# ── synto reject --all ────────────────────────────────────────────────────────
-header "synto reject --all"
+# ── notus reject --all ────────────────────────────────────────────────────────
+header "notus reject --all"
 # Use compile --force to produce drafts
 $OLW approve --all 2>&1 >/dev/null || true
 # Reset note to needing compile (both raw_notes and concept_compile_state)
 python3 - <<PYEOF
 import sqlite3
-conn = sqlite3.connect("$VAULT_DIR/.synto/state.db")
+conn = sqlite3.connect("$VAULT_DIR/.notus/state.db")
 conn.execute("UPDATE raw_notes SET status='ingested' WHERE path='raw/quantum-computing.md'")
 conn.execute("UPDATE concept_compile_state SET status='pending', error=NULL, compiled_at=NULL, updated_at=datetime('now') WHERE source_path='raw/quantum-computing.md'")
 conn.commit()
@@ -1778,13 +1778,13 @@ else
     pass "reject --all skipped (no drafts to reject)"
 fi
 
-# ── synto clean --yes ─────────────────────────────────────────────────────────
-header "synto clean --yes"
+# ── notus clean --yes ─────────────────────────────────────────────────────────
+header "notus clean --yes"
 _CLEAN_VAULT="$(mktemp -d)"
 $OLW init "$_CLEAN_VAULT" 2>&1 >/dev/null
 
 if [[ "$PROVIDER" == "ollama" ]]; then
-    cat > "$_CLEAN_VAULT/synto.toml" <<CLEANTOML
+    cat > "$_CLEAN_VAULT/notus.toml" <<CLEANTOML
 [models]
 fast = "$FAST_MODEL"
 heavy = "$HEAVY_MODEL"
@@ -1807,7 +1807,7 @@ chunk_overlap = 50
 similarity_threshold = 0.7
 CLEANTOML
 else
-    cat > "$_CLEAN_VAULT/synto.toml" <<CLEANTOML
+    cat > "$_CLEAN_VAULT/notus.toml" <<CLEANTOML
 [models]
 fast = "$FAST_MODEL"
 heavy = "$HEAVY_MODEL"
@@ -1840,7 +1840,7 @@ CLEANNOTE
 
 $OLW ingest --all --vault "$_CLEAN_VAULT" 2>&1 >/dev/null || true
 
-soft_check "clean target vault has state.db before clean" "test -f '$_CLEAN_VAULT/.synto/state.db'"
+soft_check "clean target vault has state.db before clean" "test -f '$_CLEAN_VAULT/.notus/state.db'"
 soft_check "clean target vault has wiki files before clean" \
     "test \$(find \"$_CLEAN_VAULT/wiki\" -name '*.md' 2>/dev/null | wc -l) -ge 1"
 soft_check "clean target vault raw note exists before clean" "test -f '$_CLEAN_VAULT/raw/clean-test.md'"
@@ -1851,19 +1851,19 @@ echo "$CLEAN_OUT"
 check "clean --yes exits 0" "test $_CLEAN_RC -eq 0"
 soft_check "clean --yes recreates wiki/.drafts" "test -d '$_CLEAN_VAULT/wiki/.drafts'"
 soft_check "clean --yes recreates wiki/sources" "test -d '$_CLEAN_VAULT/wiki/sources'"
-soft_check "clean --yes deletes state.db" "test ! -f '$_CLEAN_VAULT/.synto/state.db'"
+soft_check "clean --yes deletes state.db" "test ! -f '$_CLEAN_VAULT/.notus/state.db'"
 soft_check "clean --yes leaves raw notes untouched" "test -f '$_CLEAN_VAULT/raw/clean-test.md'"
 _CLEAN_WIKI_FILES=$(find "$_CLEAN_VAULT/wiki" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
 soft_check "clean --yes removes wiki article files" "test '$_CLEAN_WIKI_FILES' -eq 0"
 rm -rf "$_CLEAN_VAULT"
 
-# ── synto undo --steps 2 ──────────────────────────────────────────────────────
-header "synto undo --steps 2"
+# ── notus undo --steps 2 ──────────────────────────────────────────────────────
+header "notus undo --steps 2"
 # wiki/log.md accumulates uncommitted entries (auto_commit=false); restore it so
 # git revert can proceed without "would be overwritten by merge" errors.
 git -C "$VAULT_DIR" restore wiki/log.md 2>/dev/null || true
-# Count existing synto commits
-_UNDO_SYNTO_COMMITS=$(git -C "$VAULT_DIR" log --oneline --grep='\[synto\]' 2>/dev/null | wc -l | tr -d ' ')
+# Count existing notus commits
+_UNDO_SYNTO_COMMITS=$(git -C "$VAULT_DIR" log --oneline --grep='\[notus\]' 2>/dev/null | wc -l | tr -d ' ')
 if [[ "$_UNDO_SYNTO_COMMITS" -ge 2 ]]; then
     _UNDO2_RC=0
     UNDO2_OUT=$($OLW undo --vault "$VAULT_DIR" --steps 2 2>&1) || _UNDO2_RC=$?
@@ -1874,11 +1874,11 @@ if [[ "$_UNDO_SYNTO_COMMITS" -ge 2 ]]; then
     # Re-approve to restore published state for subsequent tests
     $OLW approve --all 2>&1 >/dev/null || true
 else
-    pass "undo --steps 2 skipped (fewer than 2 synto commits)"
+    pass "undo --steps 2 skipped (fewer than 2 notus commits)"
 fi
 
-# ── synto maintain --stubs-only ───────────────────────────────────────────────
-header "synto maintain --stubs-only"
+# ── notus maintain --stubs-only ───────────────────────────────────────────────
+header "notus maintain --stubs-only"
 # Inject a broken wikilink so maintain --stubs-only has something to report
 _MSO_VICTIM=$(find "$VAULT_DIR/wiki" -maxdepth 1 -name "*.md" \
     ! -name "index.md" ! -name "log.md" 2>/dev/null | head -1)
@@ -1900,8 +1900,8 @@ rm -f "$_TMP"
     sed -i -e '$ d' -e '$ d' "$_MSO_VICTIM" 2>/dev/null || true
 }
 
-# ── synto maintain --clear-cache ──────────────────────────────────────────────
-header "synto maintain --clear-cache"
+# ── notus maintain --clear-cache ──────────────────────────────────────────────
+header "notus maintain --clear-cache"
 _MCC_RC=0
 MCC_OUT=$($OLW maintain --clear-cache 2>&1) || _MCC_RC=$?
 echo "$MCC_OUT"
@@ -1911,8 +1911,8 @@ soft_check "maintain --clear-cache mentions cache or cleared" \
     "grep -qiE 'cache|cleared|deleted' \"$_TMP\""
 rm -f "$_TMP"
 
-# ── synto maintain --clear-cache --older-than 0 ───────────────────────────────
-header "synto maintain --clear-cache --older-than 0"
+# ── notus maintain --clear-cache --older-than 0 ───────────────────────────────
+header "notus maintain --clear-cache --older-than 0"
 _MCC2_RC=0
 MCC2_OUT=$($OLW maintain --clear-cache --older-than 0 2>&1) || _MCC2_RC=$?
 echo "$MCC2_OUT"
@@ -1922,8 +1922,8 @@ soft_check "maintain --clear-cache --older-than 0 has no traceback" \
     "! grep -qiE 'traceback' \"$_TMP\""
 rm -f "$_TMP"
 
-# ── synto items audit ─────────────────────────────────────────────────────────
-header "synto items audit"
+# ── notus items audit ─────────────────────────────────────────────────────────
+header "notus items audit"
 _IA_RC=0
 IA_OUT=$($OLW items audit 2>&1) || _IA_RC=$?
 echo "$IA_OUT"
@@ -1933,8 +1933,8 @@ soft_check "items audit has no traceback" \
     "! grep -qiE 'traceback' \"$_TMP\""
 rm -f "$_TMP"
 
-# ── synto items show (missing item) ───────────────────────────────────────────
-header "synto items show (missing item)"
+# ── notus items show (missing item) ───────────────────────────────────────────
+header "notus items show (missing item)"
 _IS_RC=0
 IS_OUT=$($OLW items show "NonexistentItemXYZ123" 2>&1) || _IS_RC=$?
 echo "$IS_OUT"
@@ -1944,8 +1944,8 @@ soft_check "items show missing item output contains not found" \
     "grep -qiE 'not found' \"$_TMP\""
 rm -f "$_TMP"
 
-# ── synto trace article ───────────────────────────────────────────────────────
-header "synto trace article"
+# ── notus trace article ───────────────────────────────────────────────────────
+header "notus trace article"
 _TRACE_WIKI=$(find "$VAULT_DIR/wiki" -maxdepth 1 -name "*.md" \
     ! -name "index.md" ! -name "log.md" 2>/dev/null | head -1)
 if [[ -n "$_TRACE_WIKI" ]]; then
@@ -1964,11 +1964,11 @@ else
     pass "trace article skipped (no published article)"
 fi
 
-# ── synto find + trace term/citation (Feature 27, default path) ──────────────
+# ── notus find + trace term/citation (Feature 27, default path) ──────────────
 # This vault has no relations (relation_extraction is off), so these exercise the
 # relation-less tiers: find's title match and trace's graceful degradation. The
 # relation-enabled paths live in smoke_feature_relation_graph.sh.
-header "synto find + trace term/citation"
+header "notus find + trace term/citation"
 if [[ -n "$_TRACE_WIKI" ]]; then
     _FIND_RC=0
     FIND_OUT=$($OLW find "$_TRACE_TITLE" 2>&1) || _FIND_RC=$?
@@ -1984,7 +1984,7 @@ fi
 
 _TT_CONCEPT=$(python3 - <<PYEOF
 import sqlite3
-conn = sqlite3.connect("$VAULT_DIR/.synto/state.db")
+conn = sqlite3.connect("$VAULT_DIR/.notus/state.db")
 row = conn.execute("SELECT name FROM concepts ORDER BY name LIMIT 1").fetchone()
 print(row[0] if row else "")
 conn.close()
@@ -2008,22 +2008,22 @@ check "trace citation explains plain-note segments have no occurrences" \
     "grep -qi 'no occurrence records' \"$_TMP\""
 rm -f "$_TMP"
 
-# ── synto add ─────────────────────────────────────────────────────────────────
-header "synto add"
-# a) Baseline — .synto/sources is created lazily by synto add; ensure it exists
+# ── notus add ─────────────────────────────────────────────────────────────────
+header "notus add"
+# a) Baseline — .notus/sources is created lazily by notus add; ensure it exists
 # so that find doesn't return non-zero and trigger set -e before the first add.
-mkdir -p "$VAULT_DIR/.synto/sources"
-_ADD_SOURCES_BEFORE=$(find "$VAULT_DIR/.synto/sources" \
+mkdir -p "$VAULT_DIR/.notus/sources"
+_ADD_SOURCES_BEFORE=$(find "$VAULT_DIR/.notus/sources" \
     -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')
 _ADD_RAW_BEFORE=$(find "$VAULT_DIR/raw" -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
 
 # b) Create temp source file
-_ADD_TMPFILE=$(mktemp /tmp/synto-add-test-XXXXXX.md)
+_ADD_TMPFILE=$(mktemp /tmp/notus-add-test-XXXXXX.md)
 cat > "$_ADD_TMPFILE" <<'ADDNOTE'
 ---
 title: External Source Note
 ---
-This is an external source imported via synto add.
+This is an external source imported via notus add.
 ADDNOTE
 
 # c) First add
@@ -2035,16 +2035,16 @@ _ADD_TMP=$(mktemp); echo "$ADD_OUT" > "$_ADD_TMP"
 soft_check "add has no traceback" \
     "! grep -qiE 'traceback' \"$_ADD_TMP\""
 rm -f "$_ADD_TMP"
-_ADD_SOURCES_AFTER=$(find "$VAULT_DIR/.synto/sources" \
+_ADD_SOURCES_AFTER=$(find "$VAULT_DIR/.notus/sources" \
     -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')
-soft_check "add increases .synto/sources directory count by one" \
+soft_check "add increases .notus/sources directory count by one" \
     "test '$_ADD_SOURCES_AFTER' -eq $((_ADD_SOURCES_BEFORE + 1))"
 _ADD_RAW_AFTER=$(find "$VAULT_DIR/raw" -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
 soft_check "add increases raw note count by one" \
     "test '$_ADD_RAW_AFTER' -eq $((_ADD_RAW_BEFORE + 1))"
 _ADD_DB_COUNT=$(python3 -c "
 import sqlite3
-conn = sqlite3.connect('$VAULT_DIR/.synto/state.db')
+conn = sqlite3.connect('$VAULT_DIR/.notus/state.db')
 n = conn.execute('SELECT COUNT(*) FROM source_documents').fetchone()[0]
 print(n)
 conn.close()
@@ -2069,7 +2069,7 @@ _ADD_FORCE_TMP=$(mktemp); echo "$_ADD_FORCE_OUT" > "$_ADD_FORCE_TMP"
 soft_check "add --force has no traceback" \
     "! grep -qiE 'traceback' \"$_ADD_FORCE_TMP\""
 rm -f "$_ADD_FORCE_TMP"
-_ADD_SOURCES_FORCE=$(find "$VAULT_DIR/.synto/sources" \
+_ADD_SOURCES_FORCE=$(find "$VAULT_DIR/.notus/sources" \
     -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')
 soft_check "add --force does not grow source directory count (reuses existing)" \
     "test '$_ADD_SOURCES_FORCE' -eq '$_ADD_SOURCES_AFTER'"
@@ -2086,9 +2086,9 @@ soft_check "ingest after add creates at least one source summary page" \
 # g) Cleanup
 rm -f "$_ADD_TMPFILE"
 
-# ── synto pack export --out (external path) ───────────────────────────────────
-header "synto pack export --out (external path)"
-_PACK2_OUT="/tmp/synto-pack-$$-external"
+# ── notus pack export --out (external path) ───────────────────────────────────
+header "notus pack export --out (external path)"
+_PACK2_OUT="/tmp/notus-pack-$$-external"
 rm -rf "$_PACK2_OUT"
 _PACK2_RC=0
 PACK2_OUT_TEXT=$($OLW pack export --target agents --out "$_PACK2_OUT" 2>&1) || _PACK2_RC=$?
@@ -2097,8 +2097,8 @@ check "pack export --out exits 0" "test $_PACK2_RC -eq 0"
 soft_check "pack export --out writes pack.toml" "test -f '$_PACK2_OUT/pack.toml'"
 rm -rf "$_PACK2_OUT"
 
-# ── synto report --since 7d ───────────────────────────────────────────────────
-header "synto report --since 7d"
+# ── notus report --since 7d ───────────────────────────────────────────────────
+header "notus report --since 7d"
 _RS_RC=0
 RS_OUT=$($OLW report --since 7d 2>&1) || _RS_RC=$?
 echo "$RS_OUT"
@@ -2108,9 +2108,9 @@ soft_check "report --since 7d prints Raw notes" \
     "grep -q 'Raw notes:' \"$_TMP\""
 rm -f "$_TMP"
 
-# ── synto eval --queries ──────────────────────────────────────────────────────
-header "synto eval --queries"
-_EVAL_Q_TOML=$(mktemp /tmp/synto-eval-queries-XXXXXX.toml)
+# ── notus eval --queries ──────────────────────────────────────────────────────
+header "notus eval --queries"
+_EVAL_Q_TOML=$(mktemp /tmp/notus-eval-queries-XXXXXX.toml)
 cat > "$_EVAL_Q_TOML" <<'EVALTOML'
 [[query]]
 id = "q1"
@@ -2128,8 +2128,8 @@ soft_check "eval --queries prints Article coverage" \
 rm -f "$_TMP"
 rm -f "$_EVAL_Q_TOML"
 
-# ── synto serve (transport validation) ────────────────────────────────────────
-header "synto serve (transport validation)"
+# ── notus serve (transport validation) ────────────────────────────────────────
+header "notus serve (transport validation)"
 _SV_RC=0
 SV_OUT=$($OLW serve --transport invalid_transport 2>&1) || _SV_RC=$?
 echo "$SV_OUT"
@@ -2139,12 +2139,12 @@ soft_check "serve invalid transport output mentions transport/invalid/choice" \
     "grep -qiE 'transport|invalid|choice' \"$_TMP\""
 rm -f "$_TMP"
 
-# ── synto run --auto-approve ──────────────────────────────────────────────────
-header "synto run --auto-approve"
+# ── notus run --auto-approve ──────────────────────────────────────────────────
+header "notus run --auto-approve"
 # Reset note to needing compile (both raw_notes and concept_compile_state)
 python3 - <<PYEOF
 import sqlite3
-conn = sqlite3.connect("$VAULT_DIR/.synto/state.db")
+conn = sqlite3.connect("$VAULT_DIR/.notus/state.db")
 conn.execute("UPDATE raw_notes SET status='ingested' WHERE path='raw/quantum-computing.md'")
 conn.execute("UPDATE concept_compile_state SET status='pending', error=NULL, compiled_at=NULL, updated_at=datetime('now') WHERE source_path='raw/quantum-computing.md'")
 conn.commit()
@@ -2163,8 +2163,8 @@ rm -f "$_TMP"
 _RAA_DRAFTS=$(find "$VAULT_DIR/wiki/.drafts" -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
 soft_check "run --auto-approve leaves no drafts" "test '$_RAA_DRAFTS' -eq 0"
 
-# ── synto run --fix ───────────────────────────────────────────────────────────
-header "synto run --fix"
+# ── notus run --fix ───────────────────────────────────────────────────────────
+header "notus run --fix"
 # Inject a broken wikilink into a published article
 _RF_WIKI=$(find "$VAULT_DIR/wiki" -maxdepth 1 -name "*.md" \
     ! -name "index.md" ! -name "log.md" 2>/dev/null | head -1)
@@ -2184,8 +2184,8 @@ else
     pass "run --fix skipped (no published article)"
 fi
 
-# ── synto run --max-rounds 1 ──────────────────────────────────────────────────
-header "synto run --max-rounds 1"
+# ── notus run --max-rounds 1 ──────────────────────────────────────────────────
+header "notus run --max-rounds 1"
 _RMR_RC=0
 RMR_OUT=$($OLW run --max-rounds 1 2>&1) || _RMR_RC=$?
 echo "$RMR_OUT"
@@ -2204,7 +2204,7 @@ cat > "$_PL_LOCK_SCRIPT" <<'PYEOF'
 import fcntl, os, subprocess, sys
 
 vault = sys.argv[1]
-lock_path = os.path.join(vault, ".synto", "pipeline.lock")
+lock_path = os.path.join(vault, ".notus", "pipeline.lock")
 os.makedirs(os.path.dirname(lock_path), exist_ok=True)
 
 f = open(lock_path, "a+")
@@ -2245,23 +2245,23 @@ echo "$PL_OUT"
 check "pipeline lock blocks concurrent access" "test $_PL_RC -eq 0"
 rm -f "$_PL_LOCK_SCRIPT"
 
-# ── synto --version ───────────────────────────────────────────────────────────
-header "synto --version"
+# ── notus --version ───────────────────────────────────────────────────────────
+header "notus --version"
 _VER_RC=0
 VER_OUT=$($OLW --version 2>&1) || _VER_RC=$?
 echo "$VER_OUT"
-check "synto --version exits 0" "test $_VER_RC -eq 0"
+check "notus --version exits 0" "test $_VER_RC -eq 0"
 _TMP=$(mktemp); echo "$VER_OUT" > "$_TMP"
-soft_check "synto --version matches version pattern" \
+soft_check "notus --version matches version pattern" \
     "grep -qE '[0-9]+\.[0-9]+\.[0-9]+' \"$_TMP\""
 rm -f "$_TMP"
 
-# ── synto status (fresh vault, no ingest) ─────────────────────────────────────
-header "synto status (fresh vault, no ingest)"
+# ── notus status (fresh vault, no ingest) ─────────────────────────────────────
+header "notus status (fresh vault, no ingest)"
 _STATUS_FRESH_VAULT="$(mktemp -d)"
 $OLW init "$_STATUS_FRESH_VAULT" 2>&1 >/dev/null
 if [[ "$PROVIDER" == "ollama" ]]; then
-    cat > "$_STATUS_FRESH_VAULT/synto.toml" <<SFVTOML
+    cat > "$_STATUS_FRESH_VAULT/notus.toml" <<SFVTOML
 [models]
 fast = "$FAST_MODEL"
 heavy = "$HEAVY_MODEL"
@@ -2284,7 +2284,7 @@ chunk_overlap = 50
 similarity_threshold = 0.7
 SFVTOML
 else
-    cat > "$_STATUS_FRESH_VAULT/synto.toml" <<SFVTOML
+    cat > "$_STATUS_FRESH_VAULT/notus.toml" <<SFVTOML
 [models]
 fast = "$FAST_MODEL"
 heavy = "$HEAVY_MODEL"
@@ -2317,11 +2317,11 @@ soft_check "status on fresh vault has no traceback" \
 rm -f "$_TMP"
 rm -rf "$_STATUS_FRESH_VAULT"
 
-# ── Config loading order: SYNTO_VAULT env vs --vault flag ─────────────────────
-header "Config loading: SYNTO_VAULT env vs --vault flag"
+# ── Config loading order: NOTUS_VAULT env vs --vault flag ─────────────────────
+header "Config loading: NOTUS_VAULT env vs --vault flag"
 _CLO_ENV_RC=0
 CLO_ENV_OUT=$($OLW status 2>&1) || _CLO_ENV_RC=$?
-check "status via SYNTO_VAULT env exits 0" "test $_CLO_ENV_RC -eq 0"
+check "status via NOTUS_VAULT env exits 0" "test $_CLO_ENV_RC -eq 0"
 
 _CLO_FLAG_RC=0
 CLO_FLAG_OUT=$($OLW status --vault "$VAULT_DIR" 2>&1) || _CLO_FLAG_RC=$?
@@ -2338,7 +2338,7 @@ rm -f "$_TMP_ENV" "$_TMP_FLAG"
 # ── Inline source citations end-to-end ────────────────────────────────────────
 header "Inline source citations end-to-end"
 # Save current setting
-if grep -q 'inline_source_citations = true' "$VAULT_DIR/synto.toml" 2>/dev/null; then
+if grep -q 'inline_source_citations = true' "$VAULT_DIR/notus.toml" 2>/dev/null; then
     _ISC_PREV="on"
 else
     _ISC_PREV="off"
@@ -2348,7 +2348,7 @@ $OLW config inline-source-citations on 2>&1 >/dev/null || true
 # Reset note to needing compile (both raw_notes and concept_compile_state)
 python3 - <<PYEOF
 import sqlite3
-conn = sqlite3.connect("$VAULT_DIR/.synto/state.db")
+conn = sqlite3.connect("$VAULT_DIR/.notus/state.db")
 conn.execute("UPDATE raw_notes SET status='ingested' WHERE path='raw/quantum-computing.md'")
 conn.execute("UPDATE concept_compile_state SET status='pending', error=NULL, compiled_at=NULL, updated_at=datetime('now') WHERE source_path='raw/quantum-computing.md'")
 conn.commit()
@@ -2370,8 +2370,8 @@ soft_check "published wiki articles contain inline source citation markers" \
 # Restore setting
 $OLW config inline-source-citations "$_ISC_PREV" 2>&1 >/dev/null || true
 
-# ── synto migrate-olw ─────────────────────────────────────────────────────────
-header "synto migrate-olw"
+# ── notus migrate-olw ─────────────────────────────────────────────────────────
+header "notus migrate-olw"
 _MOLW_DIR="$(mktemp -d)"
 cat > "$_MOLW_DIR/wiki.toml" <<'MOLWTOML'
 [models]
@@ -2384,17 +2384,17 @@ _MOLW_TMP=$(mktemp)
 $OLW migrate-olw --vault "$_MOLW_DIR" > "$_MOLW_TMP" 2>&1 || _MOLW_RC=$?
 cat "$_MOLW_TMP"
 check "migrate-olw exits 0" "test $_MOLW_RC -eq 0"
-soft_check "migrate-olw creates synto.toml" "test -f '$_MOLW_DIR/synto.toml'"
-soft_check "migrate-olw creates .synto directory" "test -d '$_MOLW_DIR/.synto'"
+soft_check "migrate-olw creates notus.toml" "test -f '$_MOLW_DIR/notus.toml'"
+soft_check "migrate-olw creates .notus directory" "test -d '$_MOLW_DIR/.notus'"
 soft_check "migrate-olw .gitignore contains pipeline.lock" \
-    "grep -q '.synto/pipeline.lock' '$_MOLW_DIR/.gitignore' 2>/dev/null || grep -qF '.synto/pipeline.lock' '$_MOLW_DIR/.gitignore'"
+    "grep -q '.notus/pipeline.lock' '$_MOLW_DIR/.gitignore' 2>/dev/null || grep -qF '.notus/pipeline.lock' '$_MOLW_DIR/.gitignore'"
 soft_check "migrate-olw output contains Migrated" \
     "grep -qiE 'Migrated' \"$_MOLW_TMP\""
 rm -f "$_MOLW_TMP"
 rm -rf "$_MOLW_DIR"
 
-# ── synto doctor (uninitialised vault) ────────────────────────────────────────
-header "synto doctor (uninitialised vault)"
+# ── notus doctor (uninitialised vault) ────────────────────────────────────────
+header "notus doctor (uninitialised vault)"
 _NODOC_DIR="$(mktemp -d)"
 _NODOC_RC=0
 _NODOC_TMP=$(mktemp)
@@ -2406,8 +2406,8 @@ soft_check "doctor on uninitialised vault mentions not initialised or missing or
 rm -f "$_NODOC_TMP"
 rm -rf "$_NODOC_DIR"
 
-# ── synto eval --live (not implemented) ───────────────────────────────────────
-header "synto eval --live (not implemented)"
+# ── notus eval --live (not implemented) ───────────────────────────────────────
+header "notus eval --live (not implemented)"
 _ELIVE_RC=0
 _ELIVE_TMP=$(mktemp)
 $OLW eval --live > "$_ELIVE_TMP" 2>&1 || _ELIVE_RC=$?
@@ -2417,8 +2417,8 @@ soft_check "eval --live output mentions not implemented or Phase 1A" \
     "grep -qiE 'not implemented|Phase 1A' \"$_ELIVE_TMP\""
 rm -f "$_ELIVE_TMP"
 
-# ── synto approve --all (no drafts) ───────────────────────────────────────────
-header "synto approve --all (no drafts)"
+# ── notus approve --all (no drafts) ───────────────────────────────────────────
+header "notus approve --all (no drafts)"
 $OLW approve --all 2>&1 >/dev/null || true
 _EMPTY_DRAFTS=$(find "$VAULT_DIR/wiki/.drafts" -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
 soft_check "drafts are empty before approve --all (no drafts)" "test '$_EMPTY_DRAFTS' -eq 0"
@@ -2431,11 +2431,11 @@ soft_check "approve --all with no drafts has no traceback" \
     "! grep -qiE 'traceback' \"$_NODRAFT_TMP\""
 rm -f "$_NODRAFT_TMP"
 
-# ── synto items show (existing item) ──────────────────────────────────────────
-header "synto items show (existing item)"
+# ── notus items show (existing item) ──────────────────────────────────────────
+header "notus items show (existing item)"
 _ITEM_NAME=$(python3 -c "
 import sqlite3
-conn = sqlite3.connect('$VAULT_DIR/.synto/state.db')
+conn = sqlite3.connect('$VAULT_DIR/.notus/state.db')
 row = conn.execute('SELECT name FROM knowledge_items LIMIT 1').fetchone()
 print(row[0] if row else '')
 conn.close()
@@ -2460,7 +2460,7 @@ header "auto_commit = false (no git commits on approve)"
 _NC_VAULT="$(mktemp -d)"
 $OLW init "$_NC_VAULT" 2>&1 >/dev/null
 if [[ "$PROVIDER" == "ollama" ]]; then
-    cat > "$_NC_VAULT/synto.toml" <<NCTOML
+    cat > "$_NC_VAULT/notus.toml" <<NCTOML
 [models]
 fast = "$FAST_MODEL"
 heavy = "$HEAVY_MODEL"
@@ -2483,7 +2483,7 @@ chunk_overlap = 50
 similarity_threshold = 0.7
 NCTOML
 else
-    cat > "$_NC_VAULT/synto.toml" <<NCTOML
+    cat > "$_NC_VAULT/notus.toml" <<NCTOML
 [models]
 fast = "$FAST_MODEL"
 heavy = "$HEAVY_MODEL"
@@ -2524,8 +2524,8 @@ $OLW approve --all --vault "$_NC_VAULT" > "$_NC_APPROVE_TMP" 2>&1 || _NC_APPROVE
 cat "$_NC_APPROVE_TMP"
 check "no-commit approve --all exits 0" "test $_NC_APPROVE_RC -eq 0"
 rm -f "$_NC_APPROVE_TMP"
-_NC_SYNTO_COMMITS=$(git -C "$_NC_VAULT" log --oneline 2>/dev/null | grep -c '\[synto\]' || true)
-check "auto_commit = false produces zero git commits with [synto] prefix" \
+_NC_SYNTO_COMMITS=$(git -C "$_NC_VAULT" log --oneline 2>/dev/null | grep -c '\[notus\]' || true)
+check "auto_commit = false produces zero git commits with [notus] prefix" \
     "test '$_NC_SYNTO_COMMITS' -eq 0"
 rm -rf "$_NC_VAULT"
 
@@ -2537,8 +2537,8 @@ echo "Wiki articles created:"
 find "$VAULT_DIR/wiki" -name "*.md" -not -path "*/.drafts/*" | sort | sed 's/^/  /'
 echo ""
 echo "To inspect the vault:"
-echo "  export SYNTO_VAULT=$VAULT_DIR"
-echo "  uv run --project $REPO_DIR synto status"
+echo "  export NOTUS_VAULT=$VAULT_DIR"
+echo "  uv run --project $REPO_DIR notus status"
 if [[ "$KEEP_VAULT" == "1" ]]; then
     echo "  open $VAULT_DIR in Obsidian"
 fi

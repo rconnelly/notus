@@ -9,7 +9,7 @@ release flow is still PR-first.
 2. Create a release branch named `release/vX.Y.Z`.
 3. Bump version metadata:
    - `pyproject.toml`
-   - `src/synto/__init__.py`
+   - `src/notus/__init__.py`
 4. Update `CHANGELOG.md` with a short human-facing entry.
 5. Push `release/vX.Y.Z` and open a PR into `master`.
 6. Merge the PR.
@@ -21,7 +21,7 @@ release flow is still PR-first.
 - Do not tag from a branch whose version files still point at the previous
   release. The `vX.Y.Z` tag must land on code that reports `X.Y.Z`.
 - The helper script currently bumps only `pyproject.toml`; also update
-  `src/synto/__init__.py` manually.
+  `src/notus/__init__.py` manually.
 - If branch protection blocks direct pushes to `master`, merge the release PR
   normally and only then run the `--tag` step.
 - If your local `master` has diverged or contains local-only release commits,

@@ -58,12 +58,12 @@ jobs:
       - name: Package binary
         run: |
           mkdir -p dist
-          cp target/release/synto dist/synto-x86_64-unknown-linux-gnu
-          tar -C dist -czf dist/synto-x86_64-unknown-linux-gnu.tar.gz synto-x86_64-unknown-linux-gnu
+          cp target/release/notus dist/notus-x86_64-unknown-linux-gnu
+          tar -C dist -czf dist/notus-x86_64-unknown-linux-gnu.tar.gz notus-x86_64-unknown-linux-gnu
 
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
           body_path: RELEASE_NOTES.md
           make_latest: true
-          files: dist/synto-x86_64-unknown-linux-gnu.tar.gz
+          files: dist/notus-x86_64-unknown-linux-gnu.tar.gz

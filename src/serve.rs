@@ -33,7 +33,7 @@ pub fn run_server(
         StateDb::open_readonly(&config.state_db_path())
             .or_else(|_| StateDb::open(&config.state_db_path()))?,
     );
-    let server_name = name.unwrap_or("synto");
+    let server_name = name.unwrap_or("notus");
     match transport {
         "streamable-http" => {
             eprintln!("streamable-http listening on http://{host}:{port}/mcp (JSON-RPC POST)");

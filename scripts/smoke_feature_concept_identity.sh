@@ -57,8 +57,8 @@ import sys
 import tempfile
 from pathlib import Path
 
-from synto.client_factory import build_client
-from synto.config import Config
+from notus.client_factory import build_client
+from notus.config import Config
 
 provider, url, model = sys.argv[1:4]
 
@@ -71,8 +71,8 @@ with tempfile.TemporaryDirectory(prefix="smoke-model-resolve-") as tmp:
     vault = Path(tmp)
     (vault / "raw").mkdir()
     (vault / "wiki").mkdir()
-    (vault / ".synto").mkdir()
-    (vault / "synto.toml").write_text(
+    (vault / ".notus").mkdir()
+    (vault / "notus.toml").write_text(
         f"[models]\nfast = \"{model}\"\nheavy = \"{model}\"\n\n"
         f"[provider]\nname = \"{provider}\"\nurl = \"{url}\"\n",
         encoding="utf-8",
@@ -111,13 +111,13 @@ fi
 
 # ── vault + config ─────────────────────────────────────────────────────────────
 VAULT_DIR="$(mktemp -d)"
-export SYNTO_VAULT="$VAULT_DIR"
-OLW="${SYNTO_BIN:-$REPO_DIR/target/debug/synto}"
-DB="$VAULT_DIR/.synto/state.db"
+export NOTUS_VAULT="$VAULT_DIR"
+OLW="${NOTUS_BIN:-$REPO_DIR/target/debug/notus}"
+DB="$VAULT_DIR/.notus/state.db"
 mkdir -p "$VAULT_DIR/raw"
 
 if [[ "$PROVIDER" == "ollama" ]]; then
-  cat > "$VAULT_DIR/synto.toml" <<TOML
+  cat > "$VAULT_DIR/notus.toml" <<TOML
 [models]
 fast = "$FAST_MODEL"
 heavy = "$HEAVY_MODEL"
@@ -133,7 +133,7 @@ auto_approve = false
 auto_commit = false
 TOML
 else
-  cat > "$VAULT_DIR/synto.toml" <<TOML
+  cat > "$VAULT_DIR/notus.toml" <<TOML
 [models]
 fast = "$FAST_MODEL"
 heavy = "$HEAVY_MODEL"
@@ -236,10 +236,10 @@ $OLW approve --all 2>&1
 check "at least one wiki article published" \
   "find '$VAULT_DIR/wiki' -maxdepth 1 -name '*.md' ! -name 'index.md' ! -name 'log.md' | grep -q ."
 
-SYNTO_VAULT="$VAULT_DIR" DB="$DB" pyassert "published concepts carry a stable entity_id (migration chain v25 live)" <<'PY'
+NOTUS_VAULT="$VAULT_DIR" DB="$DB" pyassert "published concepts carry a stable entity_id (migration chain v25 live)" <<'PY'
 import os
 from pathlib import Path
-from synto.state import StateDB
+from notus.state import StateDB
 
 db = StateDB(Path(os.environ["DB"]))
 ver = db.schema_version()
@@ -259,11 +259,11 @@ PY
 # ═══════════════════════════════════════════════════════════════════════════════
 header "concept merge (loser → winner)"
 # Seed two real entities + published articles + an inbound link, deterministically.
-SYNTO_VAULT="$VAULT_DIR" DB="$DB" VAULT="$VAULT_DIR" pyassert "seed two concepts + articles for merge" <<'PY'
+NOTUS_VAULT="$VAULT_DIR" DB="$DB" VAULT="$VAULT_DIR" pyassert "seed two concepts + articles for merge" <<'PY'
 import os
 from pathlib import Path
-from synto.state import StateDB
-from synto.models import WikiArticleRecord
+from notus.state import StateDB
+from notus.models import WikiArticleRecord
 
 vault = Path(os.environ["VAULT"])
 db = StateDB(Path(os.environ["DB"]))
@@ -299,11 +299,11 @@ PY
 
 # Dry-run must mutate nothing (Stage-0 bug guard: dry-run once called merge_entities and committed).
 ENT_BEFORE=$(uv run --project "$REPO_DIR" python3 -c "
-from pathlib import Path; from synto.state import StateDB
+from pathlib import Path; from notus.state import StateDB
 db=StateDB(Path('$DB')); print(db._conn.execute('SELECT COUNT(*) FROM concept_entities').fetchone()[0]); db.close()")
 $OLW concept merge "Apple Computer" "Apple Inc" --dry-run 2>&1
 ENT_AFTER_DRY=$(uv run --project "$REPO_DIR" python3 -c "
-from pathlib import Path; from synto.state import StateDB
+from pathlib import Path; from notus.state import StateDB
 db=StateDB(Path('$DB')); print(db._conn.execute('SELECT COUNT(*) FROM concept_entities').fetchone()[0]); db.close()")
 check "merge --dry-run mutates no entities" "test '$ENT_BEFORE' = '$ENT_AFTER_DRY'"
 check "merge --dry-run leaves loser article on disk" "test -f '$VAULT_DIR/wiki/Apple Computer.md'"
@@ -322,10 +322,10 @@ check "inbound [[Apple Computer]] link repointed to winner" \
 check "no dangling [[Apple Computer]] link remains" \
   "! grep -rqF '[[Apple Computer]]' '$VAULT_DIR/wiki'"
 
-SYNTO_VAULT="$VAULT_DIR" DB="$DB" pyassert "merge moved identity: loser entity merged, label resolves to winner" <<'PY'
+NOTUS_VAULT="$VAULT_DIR" DB="$DB" pyassert "merge moved identity: loser entity merged, label resolves to winner" <<'PY'
 import os
 from pathlib import Path
-from synto.state import StateDB
+from notus.state import StateDB
 
 db = StateDB(Path(os.environ["DB"]))
 winner = db.entity_id_for_name("Apple Inc")
@@ -346,10 +346,10 @@ UNMERGE_RC=0; $OLW concept unmerge "Apple Computer" 2>&1 || UNMERGE_RC=$?
 check "concept unmerge exits 0" "test $UNMERGE_RC -eq 0"
 check "unmerge recreated a stub article for the loser" "test -f '$VAULT_DIR/wiki/Apple Computer.md'"
 
-SYNTO_VAULT="$VAULT_DIR" DB="$DB" pyassert "unmerge reactivated the loser entity and logged it" <<'PY'
+NOTUS_VAULT="$VAULT_DIR" DB="$DB" pyassert "unmerge reactivated the loser entity and logged it" <<'PY'
 import os
 from pathlib import Path
-from synto.state import StateDB
+from notus.state import StateDB
 
 db = StateDB(Path(os.environ["DB"]))
 loser = db.entity_id_for_name("Apple Computer")
@@ -364,10 +364,10 @@ print(f"loser={loser} status={status}")
 PY
 
 # Documented limitation: the body comes back as an EMPTY stub, not the original prose.
-SYNTO_VAULT="$VAULT_DIR" VAULT="$VAULT_DIR" pyassert "unmerge stub body is empty (documented best-effort limitation)" <<'PY'
+NOTUS_VAULT="$VAULT_DIR" VAULT="$VAULT_DIR" pyassert "unmerge stub body is empty (documented best-effort limitation)" <<'PY'
 import os
 from pathlib import Path
-from synto.vault import parse_note
+from notus.vault import parse_note
 
 p = Path(os.environ["VAULT"]) / "wiki" / "Apple Computer.md"
 _, body = parse_note(p)
@@ -379,11 +379,11 @@ PY
 # Section 3 — Split: homonym senses + disambiguation stub
 # ═══════════════════════════════════════════════════════════════════════════════
 header "concept split (homonym + disambiguation stub)"
-SYNTO_VAULT="$VAULT_DIR" DB="$DB" VAULT="$VAULT_DIR" pyassert "seed one entity with two sources for split" <<'PY'
+NOTUS_VAULT="$VAULT_DIR" DB="$DB" VAULT="$VAULT_DIR" pyassert "seed one entity with two sources for split" <<'PY'
 import os
 from pathlib import Path
-from synto.state import StateDB
-from synto.models import WikiArticleRecord
+from notus.state import StateDB
+from notus.models import WikiArticleRecord
 
 vault = Path(os.environ["VAULT"])
 db = StateDB(Path(os.environ["DB"]))
@@ -419,10 +419,10 @@ check "disambiguation stub marked kind: disambiguation" \
 check "disambiguation stub lists both senses" \
   "grep -qF '[[Mercury (planet)]]' '$VAULT_DIR/wiki/Mercury.md' && grep -qF '[[Mercury (element)]]' '$VAULT_DIR/wiki/Mercury.md'"
 
-SYNTO_VAULT="$VAULT_DIR" DB="$DB" pyassert "bare label now resolves to BOTH senses (ambiguous) and split logged" <<'PY'
+NOTUS_VAULT="$VAULT_DIR" DB="$DB" pyassert "bare label now resolves to BOTH senses (ambiguous) and split logged" <<'PY'
 import os
 from pathlib import Path
-from synto.state import StateDB
+from notus.state import StateDB
 
 db = StateDB(Path(os.environ["DB"]))
 res = db.resolve_label("Mercury")
@@ -447,10 +447,10 @@ check "inspect prints the entity_id" "grep -qi 'entity_id' '$_TMP'"
 rm -f "$_TMP"
 
 # Seed an ambiguous occurrence of 'Mercury' and drain it onto the planet sense.
-SYNTO_VAULT="$VAULT_DIR" DB="$DB" pyassert "seed an ambiguous occurrence of 'Mercury'" <<'PY'
+NOTUS_VAULT="$VAULT_DIR" DB="$DB" pyassert "seed an ambiguous occurrence of 'Mercury'" <<'PY'
 import os
 from pathlib import Path
-from synto.state import StateDB
+from notus.state import StateDB
 
 db = StateDB(Path(os.environ["DB"]))
 db._conn.execute(
@@ -468,10 +468,10 @@ PY
 KEEP_RC=0; KEEP_OUT=$($OLW concept keep "Mercury" "Mercury (planet)" 2>&1) || KEEP_RC=$?
 echo "$KEEP_OUT"
 check "concept keep exits 0" "test $KEEP_RC -eq 0"
-SYNTO_VAULT="$VAULT_DIR" DB="$DB" pyassert "keep resolved the ambiguous occurrence onto the chosen sense" <<'PY'
+NOTUS_VAULT="$VAULT_DIR" DB="$DB" pyassert "keep resolved the ambiguous occurrence onto the chosen sense" <<'PY'
 import os
 from pathlib import Path
-from synto.state import StateDB
+from notus.state import StateDB
 
 db = StateDB(Path(os.environ["DB"]))
 amb = db._conn.execute(
@@ -492,10 +492,10 @@ PY
 # ═══════════════════════════════════════════════════════════════════════════════
 header "lint + doctor identity checks (match_key collision, issue #54)"
 # Seed a plural/singular fold collision: User vs Users (match_key collide, label_key distinct).
-SYNTO_VAULT="$VAULT_DIR" DB="$DB" pyassert "seed User/Users fold collision" <<'PY'
+NOTUS_VAULT="$VAULT_DIR" DB="$DB" pyassert "seed User/Users fold collision" <<'PY'
 import os
 from pathlib import Path
-from synto.state import StateDB
+from notus.state import StateDB
 
 db = StateDB(Path(os.environ["DB"]))
 db.upsert_concepts("raw/user.md", ["User"])
@@ -506,7 +506,7 @@ assert ("User", "Users") in labels, f"User/Users not detected as a collision: {c
 print("collision seeded")
 PY
 
-# `synto maintain` (no --fix) runs run_lint and reports identity health issues.
+# `notus maintain` (no --fix) runs run_lint and reports identity health issues.
 LINT_OUT=$($OLW maintain 2>&1) || true
 echo "$LINT_OUT" | head -40
 _TMP=$(mktemp); echo "$LINT_OUT" > "$_TMP"
@@ -533,16 +533,16 @@ rm -f "$_TMP"
 # Section 6 — Durability: lossless rebuild from the committed INDEX.json seed
 # ═══════════════════════════════════════════════════════════════════════════════
 header "durability: rebuild identity from INDEX.json seed (decision 13)"
-# Merge/split already ran generate_index, so .synto/INDEX.json carries entity ids + the log.
-check "INDEX.json seed exists" "test -f '$VAULT_DIR/.synto/INDEX.json'"
-check "INDEX.json carries entity_id" "grep -q 'entity_id' '$VAULT_DIR/.synto/INDEX.json'"
+# Merge/split already ran generate_index, so .notus/INDEX.json carries entity ids + the log.
+check "INDEX.json seed exists" "test -f '$VAULT_DIR/.notus/INDEX.json'"
+check "INDEX.json carries entity_id" "grep -q 'entity_id' '$VAULT_DIR/.notus/INDEX.json'"
 
 # Snapshot an entity id + the log size, then destroy state.db (the gitignored layer).
 WINNER_ID_BEFORE=$(uv run --project "$REPO_DIR" python3 -c "
-from pathlib import Path; from synto.state import StateDB
+from pathlib import Path; from notus.state import StateDB
 db=StateDB(Path('$DB')); print(db.entity_id_for_name('Apple Inc') or ''); db.close()")
 LOG_BEFORE=$(uv run --project "$REPO_DIR" python3 -c "
-from pathlib import Path; from synto.state import StateDB
+from pathlib import Path; from notus.state import StateDB
 db=StateDB(Path('$DB')); print(db._conn.execute('SELECT COUNT(*) FROM concept_identity_log').fetchone()[0]); db.close()")
 check "captured a winner entity_id before rebuild" "test -n '$WINNER_ID_BEFORE'"
 
@@ -553,11 +553,11 @@ check "doctor --reconcile restores entities from the seed" \
   "grep -qiE 'reconcile: restored [0-9]+ entit' '$_TMP'"
 rm -f "$_TMP"
 
-SYNTO_VAULT="$VAULT_DIR" DB="$DB" WINNER_ID_BEFORE="$WINNER_ID_BEFORE" LOG_BEFORE="$LOG_BEFORE" \
+NOTUS_VAULT="$VAULT_DIR" DB="$DB" WINNER_ID_BEFORE="$WINNER_ID_BEFORE" LOG_BEFORE="$LOG_BEFORE" \
   pyassert "rebuild is lossless: same entity_id + identity log restored" <<'PY'
 import os
 from pathlib import Path
-from synto.state import StateDB
+from notus.state import StateDB
 
 db = StateDB(Path(os.environ["DB"]))
 after = db.entity_id_for_name("Apple Inc")
@@ -583,4 +583,4 @@ header "Results"
 echo -e "${BOLD}All checks passed: $PASS_COUNT${NC}"
 echo ""
 echo "Vault left at: $VAULT_DIR"
-echo "  export SYNTO_VAULT=$VAULT_DIR"
+echo "  export NOTUS_VAULT=$VAULT_DIR"

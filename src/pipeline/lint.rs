@@ -17,7 +17,7 @@ pub fn run_lint(config: &Config, db: &Arc<StateDb>, _fix: bool) -> Result<LintRe
     let mut issues = Vec::new();
     if config.pipeline.article_max_tokens == 4096 {
         issues.push(LintIssue {
-            path: "synto.toml".into(),
+            path: "notus.toml".into(),
             issue_type: "config_outdated".into(),
             description: "article_max_tokens is pinned at the legacy 4096 default".into(),
             suggestion: "Raise pipeline.article_max_tokens (16384 is the current default)".into(),
@@ -26,10 +26,10 @@ pub fn run_lint(config: &Config, db: &Arc<StateDb>, _fix: bool) -> Result<LintRe
     }
     if has_invalid_lock_file(&config.vault) {
         issues.push(LintIssue {
-            path: ".synto/pipeline.lock".into(),
+            path: ".notus/pipeline.lock".into(),
             issue_type: "stale_lock".into(),
             description: "pipeline.lock exists but does not contain a valid PID".into(),
-            suggestion: "Delete .synto/pipeline.lock if no pipeline is running".into(),
+            suggestion: "Delete .notus/pipeline.lock if no pipeline is running".into(),
             auto_fixable: true,
         });
     }
@@ -130,7 +130,7 @@ pub fn run_lint(config: &Config, db: &Arc<StateDb>, _fix: bool) -> Result<LintRe
                     path: rel.clone(),
                     issue_type: "malformed_latex".into(),
                     description: "LaTeX delimiters are not Obsidian-friendly".into(),
-                    suggestion: "Run synto maintain --fix".into(),
+                    suggestion: "Run notus maintain --fix".into(),
                     auto_fixable: true,
                 });
             }
