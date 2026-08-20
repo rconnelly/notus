@@ -186,7 +186,7 @@ header "Setup vault"
 info "Using vault: $VAULT_DIR"
 uv sync --project "$REPO_DIR" --quiet
 
-OLW="uv run --project $REPO_DIR synto"
+OLW="${SYNTO_BIN:-$REPO_DIR/target/debug/synto}"
 export SYNTO_VAULT="$VAULT_DIR"
 
 $OLW init "$VAULT_DIR" 2>&1 | grep -v "^$" || true
