@@ -23,7 +23,7 @@ if [[ "$TAG_ONLY" == "--tag" ]]; then
 
   echo ""
   echo "Tag v$VERSION pushed — GitHub Actions will create the release automatically."
-  echo "Track it at: https://github.com/kytmanov/synto/actions"
+  echo "Track it at: https://github.com/rconnelly/notus/actions"
   exit 0
 fi
 
