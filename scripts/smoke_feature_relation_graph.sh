@@ -2,7 +2,7 @@
 # Smoke test for Features 26+27 (PR #109): relation extraction + concept graph, end to end
 # against a live model. Covers: opt-in `pipeline.relation_extraction` ingest pass, the v29
 # DB invariants (subject_key/object_key, endpoint-must-resolve, evidence/candidates),
-# `relations:` article frontmatter, `synto find`, `synto trace term|relation|citation`,
+# `relations:` article frontmatter, `notus find`, `notus trace term|relation|citation`,
 # graph/graph.json in pack export (closed graph + capability), query-time graph expansion,
 # and replace-on-reingest semantics. Runs standalone — does not depend on smoke_test.sh.
 #
@@ -56,8 +56,8 @@ import sys
 import tempfile
 from pathlib import Path
 
-from synto.client_factory import build_client
-from synto.config import Config
+from notus.client_factory import build_client
+from notus.config import Config
 
 provider, url, model = sys.argv[1:4]
 
@@ -70,8 +70,8 @@ with tempfile.TemporaryDirectory(prefix="smoke-model-resolve-") as tmp:
     vault = Path(tmp)
     (vault / "raw").mkdir()
     (vault / "wiki").mkdir()
-    (vault / ".synto").mkdir()
-    (vault / "synto.toml").write_text(
+    (vault / ".notus").mkdir()
+    (vault / "notus.toml").write_text(
         f"[models]\nfast = \"{model}\"\nheavy = \"{model}\"\n\n"
         f"[provider]\nname = \"{provider}\"\nurl = \"{url}\"\n",
         encoding="utf-8",
@@ -110,12 +110,12 @@ fi
 
 # ── vault + config ─────────────────────────────────────────────────────────────
 VAULT_DIR="$(mktemp -d)"
-export SYNTO_VAULT="$VAULT_DIR"
-OLW="${SYNTO_BIN:-$REPO_DIR/target/debug/synto}"
+export NOTUS_VAULT="$VAULT_DIR"
+OLW="${NOTUS_BIN:-$REPO_DIR/target/debug/notus}"
 mkdir -p "$VAULT_DIR/raw"
 
 if [[ "$PROVIDER" == "ollama" ]]; then
-  cat > "$VAULT_DIR/synto.toml" <<TOML
+  cat > "$VAULT_DIR/notus.toml" <<TOML
 [models]
 fast = "$FAST_MODEL"
 heavy = "$HEAVY_MODEL"
@@ -132,7 +132,7 @@ auto_commit = false
 relation_extraction = true
 TOML
 else
-  cat > "$VAULT_DIR/synto.toml" <<TOML
+  cat > "$VAULT_DIR/notus.toml" <<TOML
 [models]
 fast = "$FAST_MODEL"
 heavy = "$HEAVY_MODEL"
@@ -245,8 +245,8 @@ check "ingest recorded concepts" \
   "uv run --project '$REPO_DIR' python3 - '$VAULT_DIR' <<'PY'
 import sys
 from pathlib import Path
-from synto.state import StateDB
-db = StateDB(Path(sys.argv[1]) / '.synto' / 'state.db')
+from notus.state import StateDB
+db = StateDB(Path(sys.argv[1]) / '.notus' / 'state.db')
 names = db.list_all_concept_names()
 assert names, 'no concepts extracted'
 print(f'{len(names)} concepts: {names}')
@@ -258,9 +258,9 @@ check "relations table has >=1 row with valid keys and known endpoints" \
   "uv run --project '$REPO_DIR' python3 - '$VAULT_DIR' <<'PY'
 import sys
 from pathlib import Path
-from synto.concept_text import concept_key
-from synto.state import StateDB
-db = StateDB(Path(sys.argv[1]) / '.synto' / 'state.db')
+from notus.concept_text import concept_key
+from notus.state import StateDB
+db = StateDB(Path(sys.argv[1]) / '.notus' / 'state.db')
 relations = db.list_relations()
 assert relations, 'no relations extracted'
 known = set(db.list_all_concept_names())
@@ -277,8 +277,8 @@ check "relation_evidence has >=1 row with non-empty evidence_text" \
   "uv run --project '$REPO_DIR' python3 - '$VAULT_DIR' <<'PY'
 import sys
 from pathlib import Path
-from synto.state import StateDB
-db = StateDB(Path(sys.argv[1]) / '.synto' / 'state.db')
+from notus.state import StateDB
+db = StateDB(Path(sys.argv[1]) / '.notus' / 'state.db')
 rows = db._conn.execute('SELECT * FROM relation_evidence').fetchall()
 assert rows, 'no relation evidence recorded'
 assert any(r['evidence_text'].strip() for r in rows), 'all evidence_text empty'
@@ -290,8 +290,8 @@ check "relation_candidates audit log has >=1 row" \
   "uv run --project '$REPO_DIR' python3 - '$VAULT_DIR' <<'PY'
 import sys
 from pathlib import Path
-from synto.state import StateDB
-db = StateDB(Path(sys.argv[1]) / '.synto' / 'state.db')
+from notus.state import StateDB
+db = StateDB(Path(sys.argv[1]) / '.notus' / 'state.db')
 rows = db._conn.execute('SELECT * FROM relation_candidates').fetchall()
 assert rows, 'no raw candidates logged'
 assert all(r['created_at'] for r in rows)
@@ -329,14 +329,14 @@ assert hits, 'no published article has a relations block'
 print(f'relations block in: {hits}')
 PY"
 
-# ── Section D: synto find + synto trace term/relation/citation ────────────────
-header "synto find + trace"
+# ── Section D: notus find + notus trace term/relation/citation ────────────────
+header "notus find + trace"
 # Discover a relation endpoint (guaranteed to be a canonical concept, per Section B).
 REL_SUBJECT=$(uv run --project "$REPO_DIR" python3 - "$VAULT_DIR" <<'PY'
 import sys
 from pathlib import Path
-from synto.state import StateDB
-db = StateDB(Path(sys.argv[1]) / '.synto' / 'state.db')
+from notus.state import StateDB
+db = StateDB(Path(sys.argv[1]) / '.notus' / 'state.db')
 rels = sorted(db.list_relations(), key=lambda r: -r['confidence'])
 print(rels[0]['subject'])
 PY
@@ -344,8 +344,8 @@ PY
 REL_ID=$(uv run --project "$REPO_DIR" python3 - "$VAULT_DIR" <<'PY'
 import sys
 from pathlib import Path
-from synto.state import StateDB
-db = StateDB(Path(sys.argv[1]) / '.synto' / 'state.db')
+from notus.state import StateDB
+db = StateDB(Path(sys.argv[1]) / '.notus' / 'state.db')
 rels = sorted(db.list_relations(), key=lambda r: -r['confidence'])
 print(rels[0]['id'])
 PY
@@ -353,8 +353,8 @@ PY
 REL_SEGMENT=$(uv run --project "$REPO_DIR" python3 - "$VAULT_DIR" <<'PY'
 import sys
 from pathlib import Path
-from synto.state import StateDB
-db = StateDB(Path(sys.argv[1]) / '.synto' / 'state.db')
+from notus.state import StateDB
+db = StateDB(Path(sys.argv[1]) / '.notus' / 'state.db')
 row = db._conn.execute('SELECT source_segment_id FROM relation_evidence LIMIT 1').fetchone()
 print(row[0])
 PY
@@ -364,27 +364,27 @@ check "discovered relation subject, id, and evidence segment" \
 
 FIND_OUT=$($OLW find "$REL_SUBJECT" 2>&1); FIND_RC=$?
 echo "$FIND_OUT"
-check "synto find <concept> exits 0" "test $FIND_RC -eq 0"
-check "synto find returns a match (not 'No articles found')" \
+check "notus find <concept> exits 0" "test $FIND_RC -eq 0"
+check "notus find returns a match (not 'No articles found')" \
   "! grep -q 'No articles found' <<< \"\$FIND_OUT\""
 
 TRACE_TERM_RC=0; $OLW trace term "$REL_SUBJECT" >/dev/null 2>&1 || TRACE_TERM_RC=$?
-check "synto trace term exits 0" "test $TRACE_TERM_RC -eq 0"
+check "notus trace term exits 0" "test $TRACE_TERM_RC -eq 0"
 
 TRACE_REL_OUT=$($OLW trace relation "$REL_ID" 2>&1); TRACE_REL_RC=$?
 echo "$TRACE_REL_OUT"
-check "synto trace relation exits 0" "test $TRACE_REL_RC -eq 0"
+check "notus trace relation exits 0" "test $TRACE_REL_RC -eq 0"
 check "trace relation shows the subject and an arrow chain" \
   "grep -qF \"\$REL_SUBJECT\" <<< \"\$TRACE_REL_OUT\" && grep -q '→' <<< \"\$TRACE_REL_OUT\""
 check "trace relation shows evidence table" \
   "grep -q 'Evidence' <<< \"\$TRACE_REL_OUT\""
 
 TRACE_CIT_RC=0; $OLW trace citation "$REL_SEGMENT" >/dev/null 2>&1 || TRACE_CIT_RC=$?
-check "synto trace citation exits 0 on a real evidence segment id" "test $TRACE_CIT_RC -eq 0"
+check "notus trace citation exits 0 on a real evidence segment id" "test $TRACE_CIT_RC -eq 0"
 
 # ── Section E: pack export → graph/graph.json ─────────────────────────────────
 header "pack export graph"
-PACK_OUT="$VAULT_DIR/.synto/exports/relation-graph-smoke"
+PACK_OUT="$VAULT_DIR/.notus/exports/relation-graph-smoke"
 rm -rf "$PACK_OUT"
 PACK_RC=0; $OLW pack export --target agents --out "$PACK_OUT" 2>&1 || PACK_RC=$?
 check "pack export exits 0" "test $PACK_RC -eq 0"
@@ -393,7 +393,7 @@ check "graph capability + closed graph.json consistent with concepts.json" \
 import json
 import sys
 from pathlib import Path
-from synto.concept_text import concept_key
+from notus.concept_text import concept_key
 pack = Path(sys.argv[1])
 manifest = json.loads((pack / 'agent' / 'manifest.json').read_text(encoding='utf-8'))
 assert 'graph' in manifest['pack']['capabilities'], manifest['pack']['capabilities']
@@ -412,7 +412,7 @@ PY"
 header "query with graph expansion"
 QUERY_OUT=$($OLW query "How does Raft achieve agreement across servers?" 2>&1); QUERY_RC=$?
 echo "$QUERY_OUT"
-check "synto query exits 0 with a populated relation graph" "test $QUERY_RC -eq 0"
+check "notus query exits 0 with a populated relation graph" "test $QUERY_RC -eq 0"
 check "query produced a non-empty answer" "test -n \"\$(printf '%s' \"\$QUERY_OUT\" | tr -d '[:space:]')\""
 # Which pages the fast model selects is non-deterministic; expansion itself is
 # unit-covered. Soft: just confirm the Sources footer rendered.
@@ -433,8 +433,8 @@ check "re-ingest replaced raft_note candidates (all newer than watermark), left 
   "uv run --project '$REPO_DIR' python3 - '$VAULT_DIR' '$WATERMARK' <<'PY'
 import sys
 from pathlib import Path
-from synto.state import StateDB
-db = StateDB(Path(sys.argv[1]) / '.synto' / 'state.db')
+from notus.state import StateDB
+db = StateDB(Path(sys.argv[1]) / '.notus' / 'state.db')
 watermark = sys.argv[2]
 rows = db._conn.execute('SELECT source_segment_id, created_at FROM relation_candidates').fetchall()
 raft = [r for r in rows if r['source_segment_id'].startswith('note:raft_note:')]
@@ -449,7 +449,7 @@ assert all(r['created_at'] < watermark for r in other), 'untouched note was clea
 print(f'{len(raft)} replaced, {len(other)} untouched')
 PY"
 
-check "synto status exits 0" "$OLW status"
+check "notus status exits 0" "$OLW status"
 
 # ── summary ────────────────────────────────────────────────────────────────────
 header "Results"
@@ -459,4 +459,4 @@ if [[ $SOFT_FAIL_COUNT -gt 0 ]]; then
 fi
 echo ""
 echo "Vault left at: $VAULT_DIR"
-echo "  export SYNTO_VAULT=$VAULT_DIR"
+echo "  export NOTUS_VAULT=$VAULT_DIR"

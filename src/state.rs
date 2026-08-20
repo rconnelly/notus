@@ -84,7 +84,7 @@ impl StateDb {
         let current = current.unwrap_or(0);
         if current > CURRENT_SCHEMA_VERSION {
             return Err(Error::msg(format!(
-                "On-disk DB schema_version={current} is newer than this synto binary (supports v{CURRENT_SCHEMA_VERSION}). Upgrade synto."
+                "On-disk DB schema_version={current} is newer than this notus binary (supports v{CURRENT_SCHEMA_VERSION}). Upgrade notus."
             )));
         }
         drop(conn);

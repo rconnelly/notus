@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # smoke_source_overrides.sh — end-to-end test for per-source-type ingest overrides
 #
-# Verifies that [pipeline.source_overrides] in synto.toml lifts the
+# Verifies that [pipeline.source_overrides] in notus.toml lifts the
 # concept-extraction ceiling for a given source_type at runtime.
 #
 # Usage:
@@ -112,8 +112,8 @@ import sys
 import tempfile
 from pathlib import Path
 
-from synto.client_factory import build_client
-from synto.config import Config
+from notus.client_factory import build_client
+from notus.config import Config
 
 provider, url, model = sys.argv[1:4]
 
@@ -124,8 +124,8 @@ with tempfile.TemporaryDirectory(prefix="smoke-resolve-") as tmp:
     vault = Path(tmp)
     (vault / "raw").mkdir()
     (vault / "wiki").mkdir()
-    (vault / ".synto").mkdir()
-    (vault / "synto.toml").write_text(
+    (vault / ".notus").mkdir()
+    (vault / "notus.toml").write_text(
         f"[models]\nfast = \"{model}\"\nheavy = \"{model}\"\n\n"
         f"[provider]\nname = \"{provider}\"\nurl = \"{url}\"\n"
     )
@@ -186,20 +186,20 @@ header "Setup vault"
 info "Using vault: $VAULT_DIR"
 uv sync --project "$REPO_DIR" --quiet
 
-OLW="${SYNTO_BIN:-$REPO_DIR/target/debug/synto}"
-export SYNTO_VAULT="$VAULT_DIR"
+OLW="${NOTUS_BIN:-$REPO_DIR/target/debug/notus}"
+export NOTUS_VAULT="$VAULT_DIR"
 
 $OLW init "$VAULT_DIR" 2>&1 | grep -v "^$" || true
 
 soft_check "raw/ created"           "test -d $VAULT_DIR/raw"
 soft_check "wiki/ created"          "test -d $VAULT_DIR/wiki"
-soft_check ".synto/ created"        "test -d $VAULT_DIR/.synto"
+soft_check ".notus/ created"        "test -d $VAULT_DIR/.notus"
 
-# ── Write synto.toml with source_overrides ──────────────────────────────────
+# ── Write notus.toml with source_overrides ──────────────────────────────────
 header "Configure source_overrides"
 
 if [[ "$PROVIDER" == "ollama" ]]; then
-    cat > "$VAULT_DIR/synto.toml" <<TOML
+    cat > "$VAULT_DIR/notus.toml" <<TOML
 [models]
 fast = "$FAST_MODEL"
 heavy = "$FAST_MODEL"
@@ -218,7 +218,7 @@ max_concepts_per_source = 8
 max_concepts_per_source = 25
 TOML
 else
-    cat > "$VAULT_DIR/synto.toml" <<TOML
+    cat > "$VAULT_DIR/notus.toml" <<TOML
 [models]
 fast = "$FAST_MODEL"
 heavy = "$FAST_MODEL"
@@ -239,7 +239,7 @@ max_concepts_per_source = 25
 TOML
 fi
 
-pass "synto.toml written with source_overrides.textbook.max_concepts_per_source = 25"
+pass "notus.toml written with source_overrides.textbook.max_concepts_per_source = 25"
 
 # ── Deterministic config-level checks ────────────────────────────────────────
 header "Config-level override verification"
@@ -247,7 +247,7 @@ header "Config-level override verification"
 _CFG_CHECKS=$(uv run --project "$REPO_DIR" python - "$VAULT_DIR" <<'PY' 2>&1
 import sys
 from pathlib import Path
-from synto.config import Config
+from notus.config import Config
 
 vault = Path(sys.argv[1])
 cfg = Config.from_vault(vault)
@@ -264,12 +264,12 @@ print(f"effective_max_concepts(textbook)=25  effective_max_concepts(notes)=8")
 
 # Unknown source type warns but does not raise
 import logging
-logging.getLogger("synto.config").setLevel(logging.WARNING)
+logging.getLogger("notus.config").setLevel(logging.WARNING)
 import io, logging.handlers
 buf = io.StringIO()
 handler = logging.StreamHandler(buf)
 handler.setLevel(logging.WARNING)
-logging.getLogger("synto.config").addHandler(handler)
+logging.getLogger("notus.config").addHandler(handler)
 
 cfg2 = Config(
     vault="/tmp/v",
@@ -361,12 +361,12 @@ TB_HASH=$(shasum "$VAULT_DIR/raw/textbook-ml.md" | awk '{print $1}')
 NT_HASH=$(shasum "$VAULT_DIR/raw/notes-ml.md" | awk '{print $1}')
 
 # ── Ingest ───────────────────────────────────────────────────────────────────
-header "synto ingest --all"
+header "notus ingest --all"
 
 info "Calling $PROVIDER ($FAST_MODEL) — may take 1-3 min..."
 $OLW ingest --all 2>&1
 
-check "state.db created" "test -f $VAULT_DIR/.synto/state.db"
+check "state.db created" "test -f $VAULT_DIR/.notus/state.db"
 soft_check "textbook raw file unchanged" \
     "test \"\$(shasum '$VAULT_DIR/raw/textbook-ml.md' | awk '{print \$1}')\" = '$TB_HASH'"
 soft_check "notes raw file unchanged" \
@@ -381,7 +381,7 @@ import sys
 from pathlib import Path
 
 vault = Path(sys.argv[1])
-db = sqlite3.connect(str(vault / ".synto" / "state.db"))
+db = sqlite3.connect(str(vault / ".notus" / "state.db"))
 
 tb_count = db.execute(
     "SELECT COUNT(*) FROM concepts WHERE source_path = ?",
@@ -434,7 +434,7 @@ if [[ "$SOURCE_COUNT" -gt 0 ]]; then
 fi
 
 # ── Status ──────────────────────────────────────────────────────────────────
-header "synto status"
+header "notus status"
 $OLW status 2>&1
 
 # ── Summary ──────────────────────────────────────────────────────────────────
@@ -451,5 +451,5 @@ echo "  notes    (global=8):    $_NT_COUNT concepts"
 echo ""
 if [[ "$KEEP_VAULT" == "1" ]]; then
     echo "Vault: $VAULT_DIR"
-    echo "  uv run --project $REPO_DIR synto status --vault $VAULT_DIR"
+    echo "  uv run --project $REPO_DIR notus status --vault $VAULT_DIR"
 fi

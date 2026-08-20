@@ -45,7 +45,7 @@ check() {
 }
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-OLW="${SYNTO_BIN:-$REPO_DIR/target/debug/synto}"
+OLW="${NOTUS_BIN:-$REPO_DIR/target/debug/notus}"
 VAULT="$(mktemp -d)"
 trap 'rm -rf "$VAULT"' EXIT
 
@@ -56,7 +56,7 @@ header "Init + write NEW per-role config (two distinct models, one connection)"
 $OLW init "$VAULT" >/dev/null 2>&1 || true
 # Both roles share ONE provider connection (dedup) but use DIFFERENT models — the
 # router must build a single client and route each role to its own model.
-cat > "$VAULT/synto.toml" <<TOML
+cat > "$VAULT/notus.toml" <<TOML
 [providers.local]
 name = "$PROVIDER_NAME"
 url = "$PROVIDER_URL"
@@ -103,12 +103,12 @@ check "at least one draft produced" \
 header "Per-role routing assertion (metric_events)"
 # Business logic of #24: fast-role calls must hit the fast model, heavy-role calls the
 # heavy model — and both must appear (proving the per-role split actually took effect).
-ROUTE_OUT=$(SYNTO_VAULT="$VAULT" FAST="$FAST_MODEL" HEAVY="$HEAVY_MODEL" \
+ROUTE_OUT=$(NOTUS_VAULT="$VAULT" FAST="$FAST_MODEL" HEAVY="$HEAVY_MODEL" \
     uv run --project "$REPO_DIR" python - <<'PY' || true
 import os, sqlite3, sys
 
-vault, fast, heavy = os.environ["SYNTO_VAULT"], os.environ["FAST"], os.environ["HEAVY"]
-con = sqlite3.connect(os.path.join(vault, ".synto", "state.db"))
+vault, fast, heavy = os.environ["NOTUS_VAULT"], os.environ["FAST"], os.environ["HEAVY"]
+con = sqlite3.connect(os.path.join(vault, ".notus", "state.db"))
 rows = con.execute(
     "SELECT model, tier FROM metric_events WHERE event_type='llm_call' AND tier != ''"
 ).fetchall()

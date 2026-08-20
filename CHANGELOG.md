@@ -4,12 +4,16 @@
 
 ### Changed
 
-- **Rewrite in Rust.** Synto is now a single `synto` binary (`cargo install --path .` or
+- **Renamed to Notus.** The crate, binary, and CLI are now `notus`. New vaults use
+  `notus.toml` and `.notus/`. Existing Synto vaults still load: `synto.toml`, `.synto/`,
+  `SYNTO_VAULT`, `SYNTO_API_KEY`, `~/.config/synto/`, and `[synto]` git commits remain
+  recognized as legacy aliases.
+
+- **Rewrite in Rust.** Notus is a single `notus` binary (`cargo install --path .` or
   `cargo install --git https://github.com/kytmanov/synto`). The Python package, PyPI
-  publish path, and `pip`/`uv` install are gone. Vault layout, `synto.toml`, the SQLite
-  state DB, and the CLI command names are unchanged. Offline `cargo test` covers hashing,
-  sanitization, vault parsing, the state DB, ingest/compile with a mock LLM, and `synto init`.
-  Feature work still catching up to the Python tree: `synto compare` is a stub, MCP is a
+  publish path, and `pip`/`uv` install are gone. Offline `cargo test` covers hashing,
+  sanitization, vault parsing, the state DB, ingest/compile with a mock LLM, and `notus init`.
+  Feature work still catching up to the Python tree: `notus compare` is a stub, MCP is a
   smaller JSON-RPC subset, and some ingest/compile/query edge cases are simplified.
 
 ### Fixed

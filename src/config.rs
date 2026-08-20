@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::api_keys::resolve_api_key;
 use crate::hashing::sha256_hex;
-use crate::paths::{effective_config_path, APP_DIR_NAME, LEGACY_CONFIG_FILE_NAME};
+use crate::paths::{effective_config_path, CLI_NAME, LEGACY_CONFIG_FILE_NAME};
 use crate::providers::get_provider;
 use crate::{Error, Result};
 
@@ -518,7 +518,7 @@ impl Config {
         self.vault.join("wiki").join(".drafts")
     }
     pub fn app_dir(&self) -> PathBuf {
-        self.vault.join(APP_DIR_NAME)
+        crate::paths::effective_app_dir(&self.vault)
     }
     pub fn state_db_path(&self) -> PathBuf {
         self.app_dir().join("state.db")
@@ -719,7 +719,7 @@ impl Config {
         let config_file = effective_config_path(&vault);
         if !config_file.exists() && vault.join(LEGACY_CONFIG_FILE_NAME).exists() {
             return Err(Error::config(format!(
-                "Legacy vault config found at {}; run `synto migrate-olw --vault {}` first.",
+                "Legacy vault config found at {}; run `{CLI_NAME} migrate-olw --vault {}` first.",
                 vault.join(LEGACY_CONFIG_FILE_NAME).display(),
                 vault.display()
             )));
@@ -728,7 +728,7 @@ impl Config {
             let bytes = std::fs::read(&config_file)?;
             let text = String::from_utf8(bytes).map_err(|_| {
                 Error::config(format!(
-                    "{} is not valid UTF-8. Re-save the file as UTF-8, or delete it and re-run `synto init <vault> --existing`.",
+                    "{} is not valid UTF-8. Re-save the file as UTF-8, or delete it and re-run `{CLI_NAME} init <vault> --existing`.",
                     config_file.display()
                 ))
             })?;
@@ -739,7 +739,7 @@ impl Config {
         };
         if file_config.get("telemetry").is_some() {
             return Err(Error::config(format!(
-                "Legacy [telemetry] config found in {}; rename it to [metrics] or run `synto migrate-olw`.",
+                "Legacy [telemetry] config found in {}; rename it to [metrics] or run `{CLI_NAME} migrate-olw`.",
                 config_file.display()
             )));
         }
@@ -898,7 +898,7 @@ pub fn default_wiki_toml(
             .and_then(|p| p.env_var)
             .unwrap_or("PROVIDER_API_KEY");
         provider_lines.push(format!(
-            "# api_key_env = \"{env_hint}\"  # or set that env var / store the key in ~/.config/synto/config.toml"
+            "# api_key_env = \"{env_hint}\"  # or set that env var / store the key in ~/.config/notus/config.toml"
         ));
     }
     let provider_section = provider_lines.join("\n") + "\n";

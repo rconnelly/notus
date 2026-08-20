@@ -303,7 +303,7 @@ CREATE TABLE IF NOT EXISTS concept_identity_log (
 -- merged (e.g. "GD" extracted as a concept after it was a weak alias of "Gradient Descent").
 -- The pair is ordered by preferred label_key (NOT entity_id, which is random) so the same
 -- logical pair dedups to one row regardless of ingest order. Advisory only; re-derived on
--- re-ingest, so it stays out of the .synto/INDEX.json durability seed.
+-- re-ingest, so it stays out of the .notus/INDEX.json durability seed.
 CREATE TABLE IF NOT EXISTS concept_merge_candidates (
     entity_a   TEXT NOT NULL,
     entity_b   TEXT NOT NULL,
@@ -313,7 +313,7 @@ CREATE TABLE IF NOT EXISTS concept_merge_candidates (
     PRIMARY KEY (entity_a, entity_b, surface)
 );
 
--- `synto concept alias remove` tombstone (v27, discussion #94): extraction is
+-- `notus concept alias remove` tombstone (v27, discussion #94): extraction is
 -- LLM-non-deterministic and upsert_aliases(source='extracted') runs on every ingest, so a
 -- plain DELETE of a wrong alias gets silently re-attached by the next ingest. Every live
 -- alias-insert path checks this table (via _is_alias_denied) before writing a role='alias'

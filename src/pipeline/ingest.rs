@@ -40,8 +40,7 @@ pub fn ingest_note(
     let (_meta, body) = crate::vault::parse_note(path)?;
     let body = strip_image_text_blocks(&body);
     let hash = content_hash(&body);
-    let rel = rel_posix(path, &config.vault)
-        .unwrap_or_else(|_| path.to_string_lossy().replace('\\', "/"));
+    let rel = rel_posix(path, &config.vault)?;
     let prompt_ver = ingest_prompt_version(config);
 
     if let Some(existing) = db.get_raw(&rel)? {

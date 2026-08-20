@@ -1,7 +1,10 @@
 use std::path::Path;
 use std::process::Command;
 
-use crate::paths::{AUTO_COMMIT_PREFIX, LEGACY_AUTO_COMMIT_PREFIX};
+use crate::paths::{
+    APP_DIR_NAME, AUTO_COMMIT_PREFIX, LEGACY_AUTO_COMMIT_PREFIX, SYNTO_APP_DIR_NAME,
+    SYNTO_AUTO_COMMIT_PREFIX,
+};
 use crate::{Error, Result};
 
 fn run(args: &[&str], cwd: &Path) -> Result<std::process::Output> {
@@ -14,6 +17,7 @@ fn run(args: &[&str], cwd: &Path) -> Result<std::process::Output> {
 
 fn is_auto_commit_subject(subject: &str) -> bool {
     subject.starts_with(&format!("{AUTO_COMMIT_PREFIX} "))
+        || subject.starts_with(&format!("{SYNTO_AUTO_COMMIT_PREFIX} "))
         || subject.starts_with(&format!("{LEGACY_AUTO_COMMIT_PREFIX} "))
 }
 
@@ -44,7 +48,14 @@ impl std::fmt::Display for CommitResult {
 }
 
 pub fn git_commit(vault: &Path, message: &str, paths: Option<&[&str]>) -> CommitResult {
-    let paths = paths.unwrap_or(&["wiki/", "raw/", "vault-schema.md", ".synto/"]);
+    let default_paths = [
+        "wiki/",
+        "raw/",
+        "vault-schema.md",
+        APP_DIR_NAME,
+        SYNTO_APP_DIR_NAME,
+    ];
+    let paths = paths.unwrap_or(&default_paths);
     if has_pre_staged_changes(vault) {
         tracing::warn!("git_commit: pre-staged changes detected — skipping auto-commit");
         return CommitResult::Blocked;
@@ -168,11 +179,11 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         git_init(dir.path()).unwrap();
         run(
-            &["git", "config", "user.email", "synto@example.com"],
+            &["git", "config", "user.email", "notus@example.com"],
             dir.path(),
         )
         .unwrap();
-        run(&["git", "config", "user.name", "synto"], dir.path()).unwrap();
+        run(&["git", "config", "user.name", "notus"], dir.path()).unwrap();
         std::fs::write(dir.path().join("wiki.md"), "hi\n").unwrap();
         std::fs::create_dir_all(dir.path().join("wiki")).unwrap();
         std::fs::write(dir.path().join("wiki/Qubit.md"), "body\n").unwrap();
@@ -182,6 +193,6 @@ mod tests {
         );
         let log = git_log_auto(dir.path(), 5);
         assert_eq!(log.len(), 1);
-        assert!(log[0].message.contains("[synto] test commit"));
+        assert!(log[0].message.contains("[notus] test commit"));
     }
 }

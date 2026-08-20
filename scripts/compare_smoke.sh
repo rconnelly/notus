@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# compare_smoke.sh — end-to-end smoke for the simplified `synto compare`
+# compare_smoke.sh — end-to-end smoke for the simplified `notus compare`
 #
-# Creates a temporary vault, runs `synto compare` against that vault using the
+# Creates a temporary vault, runs `notus compare` against that vault using the
 # current config as baseline and an overridden challenger model, then checks
 # that reports are generated and the active vault is unchanged outside
-# `.synto/compare/`.
+# `.notus/compare/`.
 
 set -euo pipefail
 
@@ -30,7 +30,7 @@ else
 fi
 
 VAULT_DIR="$OUT_DIR/vault"
-COMPARE_DIR="$VAULT_DIR/.synto/compare"
+COMPARE_DIR="$VAULT_DIR/.notus/compare"
 
 if [[ -z "$PROVIDER_URL" ]]; then
     case "$PROVIDER" in
@@ -159,7 +159,7 @@ root = Path(sys.argv[1])
 h = hashlib.sha256()
 for p in sorted(root.rglob("*")):
     rel = p.relative_to(root)
-    if rel.parts[:2] == (".synto", "compare"):
+    if rel.parts[:2] == (".notus", "compare"):
         continue
     h.update(str(rel).encode())
     h.update(b"\x00")
@@ -178,8 +178,8 @@ import tempfile
 import re
 from pathlib import Path
 
-from synto.config import Config
-from synto.client_factory import build_client
+from notus.config import Config
+from notus.client_factory import build_client
 
 provider, url, model = sys.argv[1:4]
 def norm(s: str) -> str:
@@ -189,8 +189,8 @@ with tempfile.TemporaryDirectory(prefix="compare-smoke-") as tmp:
     vault = Path(tmp)
     (vault / "raw").mkdir()
     (vault / "wiki").mkdir()
-    (vault / ".synto").mkdir()
-    (vault / "synto.toml").write_text(
+    (vault / ".notus").mkdir()
+    (vault / "notus.toml").write_text(
         f"[models]\nfast = \"{model}\"\nheavy = \"{model}\"\n\n"
         f"[provider]\nname = \"{provider}\"\nurl = \"{url}\"\n"
     )
@@ -227,16 +227,16 @@ import sys
 import tempfile
 from pathlib import Path
 
-from synto.config import Config
-from synto.client_factory import build_client
+from notus.config import Config
+from notus.client_factory import build_client
 
 provider, url, baseline = sys.argv[1:4]
 with tempfile.TemporaryDirectory(prefix="compare-smoke-") as tmp:
     vault = Path(tmp)
     (vault / "raw").mkdir()
     (vault / "wiki").mkdir()
-    (vault / ".synto").mkdir()
-    (vault / "synto.toml").write_text(
+    (vault / ".notus").mkdir()
+    (vault / "notus.toml").write_text(
         f"[models]\nfast = \"{baseline}\"\nheavy = \"{baseline}\"\n\n"
         f"[provider]\nname = \"{provider}\"\nurl = \"{url}\"\n"
     )
@@ -273,7 +273,7 @@ PY
 cd "$REPO_DIR"
 
 header "Setup temporary vault"
-mkdir -p "$VAULT_DIR/raw" "$VAULT_DIR/wiki" "$VAULT_DIR/.synto"
+mkdir -p "$VAULT_DIR/raw" "$VAULT_DIR/wiki" "$VAULT_DIR/.notus"
 cat > "$VAULT_DIR/raw/note-1.md" <<'EOF'
 # Gradient Descent
 
@@ -318,7 +318,7 @@ fi
 pass "challenger model loaded: $CHALLENGER_HEAVY_MODEL_RESOLVED"
 PASS_COUNT=$((PASS_COUNT + 1))
 
-cat > "$VAULT_DIR/synto.toml" <<EOF
+cat > "$VAULT_DIR/notus.toml" <<EOF
 [models]
 fast = "$FAST_MODEL_RESOLVED"
 heavy = "$HEAVY_MODEL_RESOLVED"
@@ -354,8 +354,8 @@ EOF
 HASH_BEFORE="$(dir_hash "$VAULT_DIR")"
 SYNTHESIS_HASH_BEFORE="$(dir_hash "$VAULT_DIR/wiki/synthesis")"
 
-header "Run synto compare"
-if ! uv run synto compare \
+header "Run notus compare"
+if ! uv run notus compare \
     --vault "$VAULT_DIR" \
     --heavy-model "$CHALLENGER_HEAVY_MODEL_RESOLVED" \
     --queries "$OUT_DIR/queries.toml" \
@@ -377,7 +377,7 @@ check "summary.json exists" "[[ -s '$RESULTS_DIR/summary.json' ]]"
 
 REPORT_MD="$RESULTS_DIR/report.md"
 for section in \
-    "# synto compare" \
+    "# notus compare" \
     "## Recommendation" \
     "## Next Steps" \
     "## Config Change" \
@@ -399,8 +399,8 @@ check "summary.json has verdict" "grep -q '\"verdict\"' '$SUMMARY_JSON'"
 header "Safety checks"
 HASH_AFTER="$(dir_hash "$VAULT_DIR")"
 SYNTHESIS_HASH_AFTER="$(dir_hash "$VAULT_DIR/wiki/synthesis")"
-[[ "$HASH_BEFORE" == "$HASH_AFTER" ]] || fail "active vault changed outside .synto/compare"
-pass "active vault unchanged outside .synto/compare"
+[[ "$HASH_BEFORE" == "$HASH_AFTER" ]] || fail "active vault changed outside .notus/compare"
+pass "active vault unchanged outside .notus/compare"
 PASS_COUNT=$((PASS_COUNT + 1))
 
 check "active wiki/queries not created" "[[ ! -d '$VAULT_DIR/wiki/queries' ]]"

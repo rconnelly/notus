@@ -1,4 +1,4 @@
-use crate::paths::API_KEY_ENV_VAR;
+use crate::paths::{API_KEY_ENV_VAR, LEGACY_API_KEY_ENV_VAR};
 use crate::providers::get_provider;
 
 const LOCAL_URL_PREFIXES: &[&str] = &["http://localhost", "http://127.0.0.1"];
@@ -38,6 +38,11 @@ pub fn resolve_api_key(
         }
     }
     if let Ok(val) = std::env::var(API_KEY_ENV_VAR) {
+        if !val.is_empty() {
+            return Some(val);
+        }
+    }
+    if let Ok(val) = std::env::var(LEGACY_API_KEY_ENV_VAR) {
         if !val.is_empty() {
             return Some(val);
         }

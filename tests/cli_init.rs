@@ -2,11 +2,11 @@ use std::process::Command;
 
 #[test]
 fn help_lists_core_commands() {
-    let bin = env!("CARGO_BIN_EXE_synto");
+    let bin = env!("CARGO_BIN_EXE_notus");
     let out = Command::new(bin)
         .arg("--help")
         .output()
-        .expect("run synto --help");
+        .expect("run notus --help");
     assert!(out.status.success());
     let stdout = String::from_utf8_lossy(&out.stdout);
     for cmd in [
@@ -21,13 +21,13 @@ fn init_creates_vault_layout() {
     let tmp = tempfile::tempdir().unwrap();
     let xdg = tmp.path().join("xdg");
     let vault = tmp.path().join("wiki");
-    let bin = env!("CARGO_BIN_EXE_synto");
+    let bin = env!("CARGO_BIN_EXE_notus");
     let out = Command::new(bin)
         .args(["init", vault.to_str().unwrap(), "--non-interactive"])
         .env("XDG_CONFIG_HOME", &xdg)
         .env("HOME", tmp.path())
         .output()
-        .expect("run synto init");
+        .expect("run notus init");
     assert!(
         out.status.success(),
         "init failed: {}",
@@ -35,7 +35,7 @@ fn init_creates_vault_layout() {
     );
     assert!(vault.join("raw").is_dir());
     assert!(vault.join("wiki/.drafts").is_dir());
-    assert!(vault.join("synto.toml").is_file());
+    assert!(vault.join("notus.toml").is_file());
     assert!(vault.join("wiki/index.md").is_file());
     assert!(vault.join(".git").exists());
 }
@@ -45,7 +45,7 @@ fn status_on_fresh_vault() {
     let tmp = tempfile::tempdir().unwrap();
     let xdg = tmp.path().join("xdg");
     let vault = tmp.path().join("wiki");
-    let bin = env!("CARGO_BIN_EXE_synto");
+    let bin = env!("CARGO_BIN_EXE_notus");
     let init = Command::new(bin)
         .args(["init", vault.to_str().unwrap(), "--non-interactive"])
         .env("XDG_CONFIG_HOME", &xdg)

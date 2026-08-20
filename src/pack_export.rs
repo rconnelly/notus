@@ -44,7 +44,7 @@ pub fn export_pack(config: &Config, target: &str, out: Option<PathBuf>) -> Resul
     atomic_write(
         &out_dir.join("pack.toml"),
         &format!(
-            "name = \"synto-pack\"\nversion = \"{}\"\ntarget = \"agents\"\n",
+            "name = \"notus-pack\"\nversion = \"{}\"\ntarget = \"agents\"\n",
             crate::paths::VERSION
         ),
     )?;
@@ -55,7 +55,7 @@ pub fn export_pack(config: &Config, target: &str, out: Option<PathBuf>) -> Resul
     )?;
     atomic_write(
         &out_dir.join("agent").join("manifest.json"),
-        &serde_json::json!({"name":"synto","articles": n}).to_string(),
+        &serde_json::json!({"name":"notus","articles": n}).to_string(),
     )?;
     let mut caps = vec!["articles".into(), "concepts".into()];
     if !db.list_relations().unwrap_or_default().is_empty() {

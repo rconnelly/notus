@@ -12,13 +12,13 @@ use crate::global_config::{
     register_known_vault, save_global_config, vault_key, ForgetResult,
 };
 use crate::paths::{
-    CLI_NAME, CONFIG_FILE_NAME, PROJECT_DISCUSSIONS_URL, PROJECT_ISSUES_URL, PROJECT_REPO_URL,
-    VAULT_ENV_VAR, VERSION,
+    APP_DIR_NAME, CLI_NAME, CONFIG_FILE_NAME, LEGACY_VAULT_ENV_VAR, PROJECT_DISCUSSIONS_URL,
+    PROJECT_ISSUES_URL, PROJECT_REPO_URL, VAULT_ENV_VAR, VERSION,
 };
 use crate::state::StateDb;
 
 #[derive(Parser)]
-#[command(name = CLI_NAME, version = VERSION, about = "Synto — local knowledge packs and synthesized wiki pipeline.")]
+#[command(name = CLI_NAME, version = VERSION, about = "Notus — local knowledge packs and synthesized wiki pipeline.")]
 pub struct Cli {
     #[arg(long, global = true, env = VAULT_ENV_VAR)]
     vault: Option<PathBuf>,
@@ -28,7 +28,7 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Create vault structure and initialise Synto
+    /// Create vault structure and initialise Notus
     Init {
         vault_path: PathBuf,
         #[arg(long)]
@@ -38,7 +38,7 @@ enum Commands {
         #[arg(long)]
         default: bool,
     },
-    /// Copy an old olw vault layout into the Synto layout
+    /// Copy an old olw vault layout into the Notus layout
     MigrateOlw,
     /// Interactive provider/model/vault wizard
     Setup {
@@ -124,7 +124,7 @@ enum Commands {
         #[arg(long)]
         json: bool,
     },
-    /// Revert last N synto auto-commits
+    /// Revert last N notus auto-commits
     Undo {
         #[arg(long, default_value_t = 1)]
         steps: usize,
@@ -362,7 +362,14 @@ fn resolve_vault(cli_vault: Option<&Path>) -> Result<PathBuf> {
         return Ok(dunce(v));
     }
     if let Ok(v) = std::env::var(VAULT_ENV_VAR) {
-        return Ok(dunce(Path::new(&v)));
+        if !v.is_empty() {
+            return Ok(dunce(Path::new(&v)));
+        }
+    }
+    if let Ok(v) = std::env::var(LEGACY_VAULT_ENV_VAR) {
+        if !v.is_empty() {
+            return Ok(dunce(Path::new(&v)));
+        }
     }
     if let Some(g) = load_global_config() {
         if let Some(v) = g.vault {
@@ -372,7 +379,7 @@ fn resolve_vault(cli_vault: Option<&Path>) -> Result<PathBuf> {
     let cwd = std::env::current_dir()?;
     let mut cur = Some(cwd.as_path());
     while let Some(p) = cur {
-        if crate::paths::config_path(p).exists() || crate::paths::legacy_config_path(p).exists() {
+        if crate::paths::has_vault_config(p) {
             return Ok(p.to_path_buf());
         }
         cur = p.parent();
@@ -440,7 +447,7 @@ pub fn run() -> anyhow::Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::from_default_env()
-                .add_directive("synto=info".parse().unwrap()),
+                .add_directive("notus=info".parse().unwrap()),
         )
         .with_target(false)
         .without_time()
@@ -858,7 +865,7 @@ pub fn run() -> anyhow::Result<()> {
             Ok(())
         }
         Commands::Compare { .. } => {
-            anyhow::bail!("compare: run two vault configs side-by-side via `synto run` on ephemeral copies; full advisor report is available in library crate::compare (coming with fixture suites)")
+            anyhow::bail!("compare: run two vault configs side-by-side via `{CLI_NAME} run` on ephemeral copies; full advisor report is available in library crate::compare (coming with fixture suites)")
         }
         Commands::Pack(PackCmd::Export { target, out }) => {
             let cfg = load_cfg(cli.vault.as_deref())?;
@@ -1013,26 +1020,20 @@ fn cmd_init(
 ) -> Result<()> {
     let vault = dunce(vault_path);
     std::fs::create_dir_all(&vault)?;
-    for d in [
-        "raw",
-        "wiki",
-        "wiki/.drafts",
-        "wiki/sources",
-        ".synto",
-        ".synto/chroma",
-    ] {
+    for d in ["raw", "wiki", "wiki/.drafts", "wiki/sources"] {
         std::fs::create_dir_all(vault.join(d))?;
     }
+    std::fs::create_dir_all(vault.join(APP_DIR_NAME).join("chroma"))?;
     let schema = vault.join("vault-schema.md");
     if !schema.exists() {
         std::fs::write(
             &schema,
-            "# Vault Schema\n\n## Folder Structure\n- `raw/` — input notes (immutable, never edited by synto)\n- `wiki/` — AI-synthesised articles (managed by synto)\n- `wiki/.drafts/` — pending human review\n\n## Note Format\nEvery wiki note has YAML frontmatter with: title, tags, sources, confidence, status, created, updated.\n\n## Links\nUse `[[Article Title]]` wikilinks between notes.\n",
+            "# Vault Schema\n\n## Folder Structure\n- `raw/` — input notes (immutable, never edited by notus)\n- `wiki/` — AI-synthesised articles (managed by notus)\n- `wiki/.drafts/` — pending human review\n\n## Note Format\nEvery wiki note has YAML frontmatter with: title, tags, sources, confidence, status, created, updated.\n\n## Links\nUse `[[Article Title]]` wikilinks between notes.\n",
         )?;
     }
     let index = vault.join("wiki").join("index.md");
     if !index.exists() {
-        std::fs::write(&index, "---\ntitle: Index\ntags: [index]\nstatus: published\n---\n\n# Wiki Index\n\n_Updated automatically by synto._\n")?;
+        std::fs::write(&index, "---\ntitle: Index\ntags: [index]\nstatus: published\n---\n\n# Wiki Index\n\n_Updated automatically by notus._\n")?;
     }
     if existing && !non_interactive {
         println!("Adopted existing notes in {}", vault.display());
@@ -1084,7 +1085,7 @@ fn cmd_init(
     if !gi.exists() {
         std::fs::write(
             gi,
-            ".DS_Store\n.synto/chroma/\n.synto/state.db\n.synto/compare/\n.synto/pipeline.lock\n.synto/exports/\n.obsidian/workspace.json\n*.log\n",
+            ".DS_Store\n.notus/chroma/\n.notus/state.db\n.notus/compare/\n.notus/pipeline.lock\n.notus/exports/\n.obsidian/workspace.json\n*.log\n",
         )?;
     }
     register_known_vault(&vault);

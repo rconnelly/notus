@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Smoke test for `synto concept rename` (issue #29): rename a published concept end to end
+# Smoke test for `notus concept rename` (issue #29): rename a published concept end to end
 # and verify the article file moves, its frontmatter title updates, inbound wikilinks
 # repoint, and the vault stays consistent. Runs standalone — does not depend on smoke_test.sh.
 #
@@ -53,8 +53,8 @@ import sys
 import tempfile
 from pathlib import Path
 
-from synto.client_factory import build_client
-from synto.config import Config
+from notus.client_factory import build_client
+from notus.config import Config
 
 provider, url, model = sys.argv[1:4]
 
@@ -67,8 +67,8 @@ with tempfile.TemporaryDirectory(prefix="smoke-model-resolve-") as tmp:
     vault = Path(tmp)
     (vault / "raw").mkdir()
     (vault / "wiki").mkdir()
-    (vault / ".synto").mkdir()
-    (vault / "synto.toml").write_text(
+    (vault / ".notus").mkdir()
+    (vault / "notus.toml").write_text(
         f"[models]\nfast = \"{model}\"\nheavy = \"{model}\"\n\n"
         f"[provider]\nname = \"{provider}\"\nurl = \"{url}\"\n",
         encoding="utf-8",
@@ -107,12 +107,12 @@ fi
 
 # ── vault + config ─────────────────────────────────────────────────────────────
 VAULT_DIR="$(mktemp -d)"
-export SYNTO_VAULT="$VAULT_DIR"
-OLW="${SYNTO_BIN:-$REPO_DIR/target/debug/synto}"
+export NOTUS_VAULT="$VAULT_DIR"
+OLW="${NOTUS_BIN:-$REPO_DIR/target/debug/notus}"
 mkdir -p "$VAULT_DIR/raw"
 
 if [[ "$PROVIDER" == "ollama" ]]; then
-  cat > "$VAULT_DIR/synto.toml" <<TOML
+  cat > "$VAULT_DIR/notus.toml" <<TOML
 [models]
 fast = "$FAST_MODEL"
 heavy = "$HEAVY_MODEL"
@@ -128,7 +128,7 @@ auto_approve = false
 auto_commit = false
 TOML
 else
-  cat > "$VAULT_DIR/synto.toml" <<TOML
+  cat > "$VAULT_DIR/notus.toml" <<TOML
 [models]
 fast = "$FAST_MODEL"
 heavy = "$HEAVY_MODEL"
@@ -257,7 +257,7 @@ check "inbound wikilink repointed to new name" \
   "grep -q '\[\[${NEW_NAME}\]\]' '$VAULT_DIR/wiki/Smoke Linker.md'"
 check "old name no longer linked anywhere in wiki" \
   "! grep -rq '\[\[${OLD_NAME}\]\]' '$VAULT_DIR/wiki'"
-check "synto status exits 0 after rename" \
+check "notus status exits 0 after rename" \
   "$OLW status"
 
 # ── summary ────────────────────────────────────────────────────────────────────
@@ -265,4 +265,4 @@ header "Results"
 echo -e "${BOLD}All checks passed: $PASS_COUNT${NC}"
 echo ""
 echo "Vault left at: $VAULT_DIR"
-echo "  export SYNTO_VAULT=$VAULT_DIR"
+echo "  export NOTUS_VAULT=$VAULT_DIR"

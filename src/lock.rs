@@ -88,7 +88,7 @@ mod tests {
     #[test]
     fn exclusive_lock_blocks_second_holder() {
         let dir = tempfile::tempdir().unwrap();
-        std::fs::create_dir_all(dir.path().join(".synto")).unwrap();
+        std::fs::create_dir_all(dir.path().join(".notus")).unwrap();
         let first = try_pipeline_lock(dir.path()).unwrap();
         assert!(first.is_some());
         let second = try_pipeline_lock(dir.path()).unwrap();
@@ -101,8 +101,8 @@ mod tests {
     #[test]
     fn invalid_lock_file_is_detected() {
         let dir = tempfile::tempdir().unwrap();
-        std::fs::create_dir_all(dir.path().join(".synto")).unwrap();
-        std::fs::write(dir.path().join(".synto/pipeline.lock"), "not-a-pid").unwrap();
+        std::fs::create_dir_all(dir.path().join(".notus")).unwrap();
+        std::fs::write(dir.path().join(".notus/pipeline.lock"), "not-a-pid").unwrap();
         assert!(has_invalid_lock_file(dir.path()));
     }
 }

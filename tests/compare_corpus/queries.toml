@@ -1,4 +1,4 @@
-# Query corpus for synto compare v1.0
+# Query corpus for notus compare v1.0
 # 8 canned Q/A pairs: fact retrieval, cross-note synthesis, disambiguation, refusal.
 
 version = "1.0"
