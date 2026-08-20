@@ -2,11 +2,11 @@
 
 <p align="center">
      <a href="https://www.rust-lang.org"><img alt="Rust 1.85+" src="https://img.shields.io/badge/rust-1.85%2B-orange?style=flat&amp;logo=rust"></a>
-     <a href="https://github.com/kytmanov/synto/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/kytmanov/synto?style=flat"></a>
-     <a href="https://github.com/kytmanov/synto/forks"><img alt="GitHub forks" src="https://img.shields.io/github/forks/kytmanov/synto?style=flat"></a>
-     <a href="https://github.com/kytmanov/synto/commits/master"><img alt="GitHub last commit" src="https://img.shields.io/github/last-commit/kytmanov/synto?style=flat"></a> 
-     <a href="https://github.com/kytmanov/synto/actions/workflows/ci.yml"><img alt="CI status" src="https://img.shields.io/github/actions/workflow/status/kytmanov/synto/ci.yml?style=flat&amp;label=CI"></a> 
-     <a href="https://github.com/kytmanov/synto/releases"><img alt="GitHub release" src="https://img.shields.io/github/v/release/kytmanov/synto?style=flat"></a>
+     <a href="https://github.com/rconnelly/notus/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/rconnelly/notus?style=flat"></a>
+     <a href="https://github.com/rconnelly/notus/forks"><img alt="GitHub forks" src="https://img.shields.io/github/forks/rconnelly/notus?style=flat"></a>
+     <a href="https://github.com/rconnelly/notus/commits/master"><img alt="GitHub last commit" src="https://img.shields.io/github/last-commit/rconnelly/notus?style=flat"></a> 
+     <a href="https://github.com/rconnelly/notus/actions/workflows/ci.yml"><img alt="CI status" src="https://img.shields.io/github/actions/workflow/status/rconnelly/notus/ci.yml?style=flat&amp;label=CI"></a> 
+     <a href="https://github.com/rconnelly/notus/releases"><img alt="GitHub release" src="https://img.shields.io/github/v/release/rconnelly/notus?style=flat"></a>
      <a href="https://tip.md/kytmanov"><img alt="Tip in Crypto" src="https://tip.md/badge.svg" height="20"></a>
      <a href="https://buymeacoffee.com/kytmanov"><img alt="Buy Me A Coffee" src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-%E2%98%95-yellow?style=flat&logo=buymeacoffee&logoColor=white"></a>
 </p>
@@ -353,7 +353,7 @@ imports and is currently a safe no-op that does not mutate `notus.toml`.
 Requires **Rust 1.85+** (for `cargo install`) and an LLM provider ([Ollama](https://ollama.com) recommended for local use).
 
 ```bash
-cargo install --git https://github.com/kytmanov/synto --locked
+cargo install --git https://github.com/rconnelly/notus --locked
 # or from a local checkout
 cargo install --path .
 ```

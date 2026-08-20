@@ -20,9 +20,9 @@ pub const AUTO_COMMIT_PREFIX: &str = "[notus]";
 pub const SYNTO_AUTO_COMMIT_PREFIX: &str = "[synto]";
 pub const LEGACY_AUTO_COMMIT_PREFIX: &str = "[olw]";
 
-pub const PROJECT_REPO_URL: &str = "https://github.com/kytmanov/synto";
-pub const PROJECT_ISSUES_URL: &str = "https://github.com/kytmanov/synto/issues";
-pub const PROJECT_DISCUSSIONS_URL: &str = "https://github.com/kytmanov/synto/discussions";
+pub const PROJECT_REPO_URL: &str = "https://github.com/rconnelly/notus";
+pub const PROJECT_ISSUES_URL: &str = "https://github.com/rconnelly/notus/issues";
+pub const PROJECT_DISCUSSIONS_URL: &str = "https://github.com/rconnelly/notus/discussions";
 
 pub fn to_posix(path: &str) -> String {
     path.replace('\\', "/")
