@@ -28,15 +28,70 @@ pub fn to_posix(path: &str) -> String {
     path.replace('\\', "/")
 }
 
+/// Resolve `path` to a vault-relative POSIX string.
+///
+/// `Config::from_vault` canonicalizes the vault root. Callers often pass the
+/// original path (`/var/...` vs `/private/var/...` on macOS, or without the
+/// Windows `\\?\` prefix). Strip-prefix on the raw strings then fails and
+/// ingest used to store an absolute path in `raw_notes`.
 pub fn rel_posix(path: &Path, base: &Path) -> crate::Result<String> {
-    let rel = path.strip_prefix(base).map_err(|_| {
-        crate::Error::msg(format!(
-            "{} is not relative to {}",
-            path.display(),
-            base.display()
-        ))
-    })?;
-    Ok(rel.to_string_lossy().replace('\\', "/"))
+    if let Some(rel) = strip_rel(path, base) {
+        return Ok(rel);
+    }
+    let path_c = canonicalize_for_compare(path);
+    let base_c = canonicalize_for_compare(base);
+    if let Some(rel) = strip_rel(&path_c, &base_c) {
+        return Ok(rel);
+    }
+    if !path.is_absolute() {
+        if let Some(rel) = strip_rel(&canonicalize_for_compare(&base.join(path)), &base_c) {
+            return Ok(rel);
+        }
+    }
+    Err(crate::Error::msg(format!(
+        "{} is not relative to {}",
+        path.display(),
+        base.display()
+    )))
+}
+
+fn strip_rel(path: &Path, base: &Path) -> Option<String> {
+    path.strip_prefix(base)
+        .ok()
+        .filter(|rel| !rel.as_os_str().is_empty() || path == base)
+        .map(|rel| rel.to_string_lossy().replace('\\', "/"))
+}
+
+fn canonicalize_for_compare(path: &Path) -> PathBuf {
+    let resolved = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+    strip_windows_verbatim(resolved)
+}
+
+fn strip_windows_verbatim(path: PathBuf) -> PathBuf {
+    #[cfg(windows)]
+    {
+        use std::path::{Component, Prefix};
+        let mut components = path.components();
+        match components.next() {
+            Some(Component::Prefix(prefix)) => match prefix.kind() {
+                Prefix::VerbatimDisk(disk) => {
+                    PathBuf::from(format!("{}:\\", disk as char)).join(components.as_path())
+                }
+                Prefix::VerbatimUNC(server, share) => PathBuf::from(format!(
+                    r"\\{}\{}",
+                    server.to_string_lossy(),
+                    share.to_string_lossy()
+                ))
+                .join(components.as_path()),
+                _ => path,
+            },
+            _ => path,
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        path
+    }
 }
 
 pub fn config_path(vault: &Path) -> PathBuf {
@@ -126,6 +181,43 @@ mod tests {
     fn posix_normalizes_backslashes() {
         assert_eq!(to_posix(r"raw\note.md"), "raw/note.md");
         assert_eq!(to_posix("raw/note.md"), "raw/note.md");
+    }
+
+    #[test]
+    fn rel_posix_plain() {
+        let dir = tempfile::tempdir().unwrap();
+        let note = dir.path().join("raw").join("note.md");
+        std::fs::create_dir_all(note.parent().unwrap()).unwrap();
+        std::fs::write(&note, "x").unwrap();
+        assert_eq!(rel_posix(&note, dir.path()).unwrap(), "raw/note.md");
+    }
+
+    #[test]
+    fn rel_posix_when_base_is_canonicalized() {
+        let dir = tempfile::tempdir().unwrap();
+        let note = dir.path().join("raw").join("note.md");
+        std::fs::create_dir_all(note.parent().unwrap()).unwrap();
+        std::fs::write(&note, "x").unwrap();
+        let base = std::fs::canonicalize(dir.path()).unwrap();
+        assert_eq!(rel_posix(&note, &base).unwrap(), "raw/note.md");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn rel_posix_resolves_symlink_prefix() {
+        let dir = tempfile::tempdir().unwrap();
+        let real = dir.path().join("real");
+        std::fs::create_dir(&real).unwrap();
+        let note_dir = real.join("raw");
+        std::fs::create_dir(&note_dir).unwrap();
+        let note = note_dir.join("note.md");
+        std::fs::write(&note, "x").unwrap();
+        let link = dir.path().join("link");
+        std::os::unix::fs::symlink(&real, &link).unwrap();
+        let via_link = link.join("raw").join("note.md");
+        let canon_base = std::fs::canonicalize(&real).unwrap();
+        assert_eq!(rel_posix(&via_link, &canon_base).unwrap(), "raw/note.md");
+        assert_eq!(rel_posix(&via_link, &real).unwrap(), "raw/note.md");
     }
 
     #[test]
