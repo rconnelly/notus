@@ -9,8 +9,12 @@
   `SYNTO_VAULT`, `SYNTO_API_KEY`, `~/.config/synto/`, and `[synto]` git commits remain
   recognized as legacy aliases.
 
+- **GitHub repository is `rconnelly/notus`.** Clone, badge, and `cargo install --git`
+  URLs now point at https://github.com/rconnelly/notus (`github.com/rconnelly/synto`
+  redirects after the GitHub rename).
+
 - **Rewrite in Rust.** Notus is a single `notus` binary (`cargo install --path .` or
-  `cargo install --git https://github.com/kytmanov/synto`). The Python package, PyPI
+  `cargo install --git https://github.com/rconnelly/notus`). The Python package, PyPI
   publish path, and `pip`/`uv` install are gone. Offline `cargo test` covers hashing,
   sanitization, vault parsing, the state DB, ingest/compile with a mock LLM, and `notus init`.
   Feature work still catching up to the Python tree: `notus compare` is a stub, MCP is a
