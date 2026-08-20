@@ -31,10 +31,10 @@ fi
 git fetch origin master
 git checkout -b "release/v$VERSION" origin/master
 
-sed -i.bak "s/^version = \".*\"/version = \"$VERSION\"/" pyproject.toml && rm pyproject.toml.bak
+sed -i.bak "s/^version = \".*\"/version = \"$VERSION\"/" Cargo.toml && rm Cargo.toml.bak
 echo "Bumped version to $VERSION"
 
-git add pyproject.toml
+git add Cargo.toml
 git commit -m "chore: release v$VERSION"
 git push origin "release/v$VERSION"
 

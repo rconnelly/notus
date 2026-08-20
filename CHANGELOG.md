@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **Rewrite in Rust.** Synto is now a single `synto` binary (`cargo install --path .` or
+  `cargo install --git https://github.com/kytmanov/synto`). The Python package, PyPI
+  publish path, and `pip`/`uv` install are gone. Vault layout, `synto.toml`, the SQLite
+  state DB, and the CLI command names are unchanged. Offline `cargo test` covers hashing,
+  sanitization, vault parsing, the state DB, ingest/compile with a mock LLM, and `synto init`.
+  Feature work still catching up to the Python tree: `synto compare` is a stub, MCP is a
+  smaller JSON-RPC subset, and some ingest/compile/query edge cases are simplified.
+
 ### Fixed
 
 - **401s and `synto doctor` now name the missing credential instead of a bare "unauthorized" (#114).**

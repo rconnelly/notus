@@ -106,7 +106,7 @@ fi
 VAULT_DIR="$(mktemp -d)"
 DB="$VAULT_DIR/.synto/state.db"
 export SYNTO_VAULT="$VAULT_DIR"
-OLW="uv run --project $REPO_DIR synto"
+OLW="${SYNTO_BIN:-$REPO_DIR/target/debug/synto}"
 mkdir -p "$VAULT_DIR/raw"
 
 # Write model config before any section so LLM sections work

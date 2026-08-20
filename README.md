@@ -1,12 +1,12 @@
 # Synto
 
 <p align="center">
-     <a href="https://pepy.tech/projects/synto"><img alt="PyPI downloads" src="https://static.pepy.tech/badge/synto"></a>
+     <a href="https://www.rust-lang.org"><img alt="Rust 1.85+" src="https://img.shields.io/badge/rust-1.85%2B-orange?style=flat&amp;logo=rust"></a>
      <a href="https://github.com/kytmanov/synto/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/kytmanov/synto?style=flat"></a>
      <a href="https://github.com/kytmanov/synto/forks"><img alt="GitHub forks" src="https://img.shields.io/github/forks/kytmanov/synto?style=flat"></a>
      <a href="https://github.com/kytmanov/synto/commits/master"><img alt="GitHub last commit" src="https://img.shields.io/github/last-commit/kytmanov/synto?style=flat"></a> 
      <a href="https://github.com/kytmanov/synto/actions/workflows/ci.yml"><img alt="CI status" src="https://img.shields.io/github/actions/workflow/status/kytmanov/synto/ci.yml?style=flat&amp;label=CI"></a> 
-     <a href="https://pypi.org/project/synto/"><img alt="PyPI version" src="https://img.shields.io/pypi/v/synto?style=flat"></a>
+     <a href="https://github.com/kytmanov/synto/releases"><img alt="GitHub release" src="https://img.shields.io/github/v/release/kytmanov/synto?style=flat"></a>
      <a href="https://tip.md/kytmanov"><img alt="Tip in Crypto" src="https://tip.md/badge.svg" height="20"></a>
      <a href="https://buymeacoffee.com/kytmanov"><img alt="Buy Me A Coffee" src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-%E2%98%95-yellow?style=flat&logo=buymeacoffee&logoColor=white"></a>
 </p>
@@ -349,15 +349,15 @@ imports and is currently a safe no-op that does not mutate `synto.toml`.
 
 ## Install
 
-Requires **Python 3.11+** and an LLM provider ([Ollama](https://ollama.com) recommended for local use).
+Requires **Rust 1.85+** (for `cargo install`) and an LLM provider ([Ollama](https://ollama.com) recommended for local use).
 
 ```bash
-pip install synto
-# or
-uv tool install synto
+cargo install --git https://github.com/kytmanov/synto --locked
+# or from a local checkout
+cargo install --path .
 ```
 
-The MCP server (`synto serve`) ships in the base install — no extras flag needed.
+The MCP server (`synto serve`) ships in the same binary — no extras flag needed.
 
 ---
 
@@ -715,7 +715,7 @@ Any file-aware agent can read the articles directly. `INDEX.json` enables fast c
 
 ## Requirements
 
-- Python 3.11+
+- Rust 1.85+ (`rustup`, `cargo`)
 - An LLM provider: [Ollama](https://ollama.com) (local), LM Studio, or any OpenAI-compatible endpoint
 
 **Minimum recommended:** a 4B model for ingest (e.g. Gemma 4 `gemma4:e4b`) and a 14B+ model for compilation (e.g. Qwen 2.5 14B `qwen2.5:14b`). This is the ground-floor setup for quality output — works offline on 16 GB RAM. A single 4B model for both stages works if you're just getting started.

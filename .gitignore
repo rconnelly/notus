@@ -1,4 +1,7 @@
-.DS_Store
+# Rust
+/target/
+
+# Python (legacy)
 __pycache__/
 *.py[cod]
 *.egg-info/

@@ -111,7 +111,7 @@ fi
 # ── vault + config ─────────────────────────────────────────────────────────────
 VAULT_DIR="$(mktemp -d)"
 export SYNTO_VAULT="$VAULT_DIR"
-OLW="uv run --project $REPO_DIR synto"
+OLW="${SYNTO_BIN:-$REPO_DIR/target/debug/synto}"
 mkdir -p "$VAULT_DIR/raw"
 
 if [[ "$PROVIDER" == "ollama" ]]; then

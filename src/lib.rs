@@ -1,0 +1,28 @@
+pub mod api_keys;
+pub mod cache;
+pub mod cli;
+pub mod concept_text;
+pub mod config;
+pub mod error;
+pub mod extractors;
+pub mod git_ops;
+pub mod global_config;
+pub mod hashing;
+pub mod indexer;
+pub mod llm;
+pub mod lock;
+pub mod markdown_math;
+pub mod models;
+pub mod pack_export;
+pub mod paths;
+pub mod pipeline;
+pub mod pricing;
+pub mod providers;
+pub mod sanitize;
+pub mod serve;
+pub mod state;
+pub mod stats;
+pub mod vault;
+pub mod watcher;
+
+pub use error::{Error, Result};

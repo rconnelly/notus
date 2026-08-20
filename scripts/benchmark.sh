@@ -30,7 +30,7 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-SYNTO="uv run --project $PROJECT_DIR synto"
+SYNTO="${SYNTO_BIN:-$PROJECT_DIR/target/debug/synto}"
 
 # Portable epoch-milliseconds. GNU `date +%s%3N` is unavailable on BSD/macOS
 # (no %N), so go through python which is already a hard dependency here.

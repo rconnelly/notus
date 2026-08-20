@@ -45,7 +45,7 @@ check() {
 }
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-OLW="uv run --project $REPO_DIR synto"
+OLW="${SYNTO_BIN:-$REPO_DIR/target/debug/synto}"
 VAULT="$(mktemp -d)"
 trap 'rm -rf "$VAULT"' EXIT
 
